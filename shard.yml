@@ -1,0 +1,9 @@
+---
+name: crystal.pty
+version: 0.0.0
+authors:
+- Anatoly Chernov <chertoly@gmail.com>
+targets:
+  crystal.pty:
+    main: src/bin/crystal.pty.cr
+crystal: ">= 1.15.1"

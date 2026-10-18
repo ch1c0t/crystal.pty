@@ -1,0 +1,1 @@
+puts "crystal.pty is made with Crystal."
