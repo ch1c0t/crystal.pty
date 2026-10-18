@@ -1,5 +1,5 @@
 ---
-name: crystal.pty
+name: pty
 version: 0.0.0
 authors:
 - Anatoly Chernov <chertoly@gmail.com>
