@@ -10,7 +10,8 @@ describe PTY::Session do
     session.resize(rows: 42, columns: 120)
     session.write("proceed\n")
 
-    session.wait.should eq(0)
+    exit_code = session.wait
     session.output.should contain("42 120")
+    exit_code.should eq(0)
   end
 end

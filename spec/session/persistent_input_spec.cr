@@ -10,7 +10,8 @@ describe PTY::Session do
     session.write("persistent\n")
     session.write("state\n")
 
-    session.wait.should eq(0)
+    exit_code = session.wait
     session.output.should contain("session-value:persistent-state")
+    exit_code.should eq(0)
   end
 end

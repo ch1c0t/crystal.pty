@@ -10,9 +10,10 @@ describe PTY::Session do
     session.start { |chunk| chunks << chunk }
     session.write("payload\n")
 
-    session.wait.should eq(0)
+    exit_code = session.wait
     session.output.should contain("stream-begin")
     session.output.should contain("stream-end:payload")
     chunks.join.should eq(session.output)
+    exit_code.should eq(0)
   end
 end
