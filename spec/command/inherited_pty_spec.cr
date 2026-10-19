@@ -1,7 +1,9 @@
 require "spec"
 require "../../src/pty"
 
-describe "PTY::Command time" do
+describe PTY::Command do
+  # A background descendant can keep the PTY slave open after the leader exits;
+  # this guards against waiting indefinitely for EOF from a process that has exited.
   it "does not wait forever for descendants which inherit the PTY" do
     command = PTY::Command.new("sleep 30 </dev/tty >/dev/tty 2>&1 & printf leader-exited; exit 0")
     started_at = Time.instant
