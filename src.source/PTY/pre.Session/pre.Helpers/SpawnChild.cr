@@ -4,13 +4,12 @@ private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
   ENV["TERM"] ||= "xterm-256color"
 
   begin
-    ready = "printf 'ready\\n' > '#{@ready_path}.tmp' && mv '#{@ready_path}.tmp' '#{@ready_path}'; "
     if argv = @argv
-      command = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-      Process.exec("/bin/sh", ["-c", ready + command, "pty-session"] + argv)
+      script = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
+      Process.exec("/bin/sh", ["-c", script, "pty-session"] + argv)
     else
       command = @raw_string.empty? ? ":" : @raw_string
-      script = "#{ready}( #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
+      script = "( #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
       Process.exec("/bin/sh", ["-c", script])
     end
   rescue
