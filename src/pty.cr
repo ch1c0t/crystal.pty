@@ -338,8 +338,11 @@ module PTY
         return false unless @started
         return false if @completed || File.exists?(@status_path)
       
-        child_pid = @pid
-        child_pid != nil && C.kill(child_pid, 0) == 0
+        if child_pid = @pid
+          C.kill(child_pid, 0) == 0
+        else
+          false
+        end
       end
     end
 
