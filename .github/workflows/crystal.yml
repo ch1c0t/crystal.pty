@@ -1,0 +1,26 @@
+name: Crystal
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: latest
+      - name: Install Ruby dependencies
+        run: bundle install
+      - name: Install Crystal dependencies
+        run: shards install
+      - name: Generate sources and build
+        run: bundle exec rake
+      - name: Verify generated sources are committed
+        run: git diff --exit-code -- src
+      - name: Run PTY regression specs
+        run: crystal spec
