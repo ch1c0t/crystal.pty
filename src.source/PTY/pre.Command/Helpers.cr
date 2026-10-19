@@ -1,3 +1,4 @@
 include AllocatePTY
 include SpawnChild
 include MonitorParentStream
+include WaitForChild
