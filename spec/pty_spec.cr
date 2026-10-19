@@ -23,4 +23,14 @@ describe PTY do
     output.should eq(chunks.join)
     exit_code.should eq(0)
   end
+
+  it "executes legacy PTY::Command calls through a Session" do
+    chunks = [] of String
+    command = PTY::Command.new("printf 'command-api'; exit 7", 0, 1_i64)
+    output, exit_code = command.execute_inside_pty { |chunk| chunks << chunk }
+
+    output.should contain("command-api")
+    output.should eq(chunks.join)
+    exit_code.should eq(7)
+  end
 end
