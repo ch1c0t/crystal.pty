@@ -179,7 +179,7 @@ module PTY
     @argv : Array(String)?
     
     # Compatibility constructor used by tmux.run. The index and run_id remain part
-    # of the API; they are intentionally not needed for child-status collection.
+    # of the API; child status is reported through a private pipe.
     def initialize(@raw_string : String, _index : Int32, _run_id : Int64, *, rows : Int32? = nil, columns : Int32? = nil)
       @argv = nil
       @rows = rows
