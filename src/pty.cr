@@ -147,7 +147,25 @@ module PTY
         @reader_done = Channel(Exception?).new(1)
         @started = true
         spawn { read_output(callback) }
+        wait_until_ready
         self
+      end
+      
+      private def wait_until_ready : Nil
+        deadline = Time.instant + 2.seconds
+        until File.exists?(@ready_path) || File.exists?(@status_path)
+          if Time.instant >= deadline
+            terminate_child_group(@pid.not_nil!)
+            wait_for_reader
+            cleanup_session
+            raise "PTY child did not become ready"
+          end
+          sleep(10.milliseconds)
+        end
+      
+        File.delete(@ready_path) if File.exists?(@ready_path)
+      ensure
+        File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
       end
     end
 
@@ -213,12 +231,13 @@ module PTY
           ENV["TERM"] ||= "xterm-256color"
         
           begin
+            ready = "printf 'ready\\n' > '#{@ready_path}.tmp' && mv '#{@ready_path}.tmp' '#{@ready_path}'; "
             if argv = @argv
-              script = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-              Process.exec("/bin/sh", ["-c", script, "pty-session"] + argv)
+              command = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
+              Process.exec("/bin/sh", ["-c", ready + command, "pty-session"] + argv)
             else
               command = @raw_string.empty? ? ":" : @raw_string
-              script = "( #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
+              script = "#{ready}( #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
               Process.exec("/bin/sh", ["-c", script])
             end
           rescue
@@ -262,6 +281,7 @@ module PTY
         @rows = rows
         @columns = columns
         @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+        @ready_path = "#{@status_path}.ready"
         @pid = nil
         @exit_code = nil
         @master_fd = nil
@@ -285,6 +305,7 @@ module PTY
         @rows = rows
         @columns = columns
         @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+        @ready_path = "#{@status_path}.ready"
         @pid = nil
         @exit_code = nil
         @master_fd = nil
@@ -424,6 +445,8 @@ module PTY
         @master_fd = nil
         File.delete(@status_path) if File.exists?(@status_path)
         File.delete("#{@status_path}.tmp") if File.exists?("#{@status_path}.tmp")
+        File.delete(@ready_path) if File.exists?(@ready_path)
+        File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
       end
     end
 

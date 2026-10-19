@@ -70,4 +70,6 @@ private def cleanup_session : Nil
   @master_fd = nil
   File.delete(@status_path) if File.exists?(@status_path)
   File.delete("#{@status_path}.tmp") if File.exists?("#{@status_path}.tmp")
+  File.delete(@ready_path) if File.exists?(@ready_path)
+  File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
 end
