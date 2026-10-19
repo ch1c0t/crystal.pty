@@ -2,6 +2,7 @@ fun openpty(amaster : Int32*, aslave : Int32*, name : UInt8*, termp : Void*, win
 fun login_tty(fd : Int32) : Int32
 fun fork : Int32
 fun _exit(status : Int32) : NoReturn
+fun dup2(oldfd : Int32, newfd : Int32) : Int32
 
 struct WinSize
   ws_row : UInt16
