@@ -1,11 +1,14 @@
 module PTY
   @[Link("util")]
   lib C
-    fun openpty(amaster : Int32*, aslave : Int32*, name : UInt8*, termp : Void*, winp : Void*) : Int32
-    fun login_tty(fd : Int32) : Int32
-    fun fork : Int32
-    fun _exit(status : Int32) : NoReturn
-    fun waitpid(pid : Int32, status : Int32*, options : Int32) : Int32
+    struct WinSize
+      ws_row : UInt16
+      ws_col : UInt16
+      ws_xpixel : UInt16
+      ws_ypixel : UInt16
+    end
+
+    fun openpty(amaster : Int32*, aslave : Int32*, name : UInt8*, termp : Void*, winp : WinSize*) : Int32
     fun kill(pid : Int32, signal : Int32) : Int32
     fun close(fd : Int32) : Int32
   end
@@ -13,8 +16,14 @@ module PTY
   class Command
     module Helpers
       module AllocatePTY
-        private def allocate_pty : Tuple(Int32, Int32)
-          if C.openpty(out master_fd, out slave_fd, nil, nil, nil) == -1
+        private def allocate_pty(rows : Int32, columns : Int32) : Tuple(Int32, Int32)
+          window_size = C::WinSize.new
+          window_size.ws_row = rows.to_u16
+          window_size.ws_col = columns.to_u16
+          window_size.ws_xpixel = 0_u16
+          window_size.ws_ypixel = 0_u16
+
+          if C.openpty(out master_fd, out slave_fd, nil, nil, pointerof(window_size)) == -1
             raise "Error: OS failed to allocate PTY descriptors."
           end
           {master_fd, slave_fd}
@@ -22,29 +31,19 @@ module PTY
       end
 
       module SpawnChild
-        private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
-          C.close(master_fd)
-          C._exit(127) if C.login_tty(slave_fd) == -1
-          ENV["TERM"] ||= "xterm-256color"
-
-          begin
-            if argv = @argv
-              Process.exec(argv[0], argv)
-            else
-              Process.exec("/bin/sh", ["-c", @raw_string])
-            end
-          rescue
-            C._exit(127)
-          end
-
-          C._exit(127)
+        private def launch_process(slave_io : IO::FileDescriptor) : Process
+          command = if argv = @argv
+                      argv
+                    else
+                      ["/bin/sh", "-c", @raw_string]
+                    end
+          environment = {"TERM" => (ENV["TERM"]? || "xterm-256color")} of String => String?
+          Process.new(["setsid", "-c", "--"] + command, env: environment, input: slave_io, output: slave_io, error: slave_io)
         end
       end
 
       module MonitorParentStream
-        private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
-          C.close(slave_fd)
-          master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
+        private def monitor_parent_stream(master_io : IO::FileDescriptor, process : Process, &stream_callback : String -> Nil) : Tuple(String, Int32)
           accumulated_buffer = IO::Memory.new
           stream_done = Channel(Exception?).new(1)
 
@@ -59,32 +58,42 @@ module PTY
                   stream_callback.call(chunk)
                 rescue ex
                   stream_error = ex
-                  C.kill(-pid, 15)
+                  C.kill(-process.pid.to_i32, 15)
                   break
                 end
               end
             rescue ex : IO::Error
-              # Linux PTYs commonly report EIO when the final slave descriptor closes.
+              # Linux PTYs commonly report EIO when the final slave closes.
             rescue ex
               stream_error = ex
-              C.kill(-pid, 15)
+              C.kill(-process.pid.to_i32, 15)
             ensure
               stream_done.send(stream_error)
             end
           end
 
+          status : Process::Status? = nil
+          wait_error : Exception? = nil
           begin
-            exit_code = wait_for_child(pid)
+            status = process.wait
           rescue ex
-            terminate_child_group(pid)
-            stream_done.receive
-            raise ex
+            wait_error = ex
+          ensure
+            terminate_child_group(process.pid.to_i32)
           end
 
-          terminate_child_group(pid)
           stream_error = stream_done.receive
+          raise wait_error if wait_error
           raise stream_error if stream_error
+          child_status = status || raise("PTY child process completed without a status")
 
+          exit_code = if child_status.normal_exit?
+                        child_status.exit_code
+                      elsif signal = child_status.exit_signal?
+                        128 + signal.value
+                      else
+                        1
+                      end
           {accumulated_buffer.to_s, exit_code}
         ensure
           master_io.try &.close
@@ -92,24 +101,6 @@ module PTY
       end
 
       module WaitForChild
-        private def wait_for_child(pid : Int32) : Int32
-          loop do
-            status = 0
-            waited_pid = C.waitpid(pid, pointerof(status), 1)
-
-            if waited_pid == pid
-              signal = status & 0x7f
-              next if signal == 0x7f
-              return (status >> 8) & 0xff if signal == 0
-              return 128 + signal
-            elsif waited_pid == 0
-              sleep(10.milliseconds)
-            else
-              raise "waitpid failed for PTY child #{pid}"
-            end
-          end
-        end
-
         private def terminate_child_group(pid : Int32) : Nil
           if C.kill(-pid, 1) == 0
             sleep(50.milliseconds)
@@ -125,59 +116,82 @@ module PTY
     end
 
     getter raw_string : String
+    getter rows : Int32
+    getter columns : Int32
     @argv : Array(String)?
 
-    def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
+    def initialize(@raw_string : String, _index : Int32, _run_id : Int64, *, rows : Int32 = 24, columns : Int32 = 80)
       @argv = nil
+      @rows = rows
+      @columns = columns
+      validate_window_size
     end
 
-    def initialize(@raw_string : String)
+    def initialize(@raw_string : String, *, rows : Int32 = 24, columns : Int32 = 80)
       @argv = nil
+      @rows = rows
+      @columns = columns
+      validate_window_size
     end
 
-    def initialize(argv : Array(String))
+    def initialize(argv : Array(String), *, rows : Int32 = 24, columns : Int32 = 80)
       raise ArgumentError.new("PTY command must not be empty") if argv.empty?
       raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
 
       @argv = argv.dup
       @raw_string = argv.join(" ")
+      @rows = rows
+      @columns = columns
+      validate_window_size
     end
 
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
-      master_fd, slave_fd = allocate_pty
+      master_fd, slave_fd = allocate_pty(@rows, @columns)
+      master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
+      slave_io = IO::FileDescriptor.new(slave_fd, close_on_finalize: true)
 
-      pid = C.fork
-      if pid < 0
-        C.close(master_fd)
-        C.close(slave_fd)
-        raise "fork failed while starting PTY command"
-      elsif pid == 0
-        spawn_child(master_fd, slave_fd)
-      else
-        monitor_parent_stream(master_fd, slave_fd, pid, &stream_callback)
+      process = begin
+        launch_process(slave_io)
+      rescue ex
+        master_io.close
+        raise ex
+      ensure
+        slave_io.close
       end
+
+      monitor_parent_stream(master_io, process, &stream_callback)
     end
 
     def execute_inside_pty : Tuple(String, Int32)
       execute_inside_pty { |_chunk| }
     end
 
+    private def validate_window_size : Nil
+      if @rows < 1 || @rows > 65_535
+        raise ArgumentError.new("PTY rows must be between 1 and 65535")
+      end
+      if @columns < 1 || @columns > 65_535
+        raise ArgumentError.new("PTY columns must be between 1 and 65535")
+      end
+    end
+
     include Helpers
   end
 
-  def self.run(command : String, &stream_callback : String -> Nil) : Tuple(String, Int32)
-    Command.new(command).execute_inside_pty(&stream_callback)
+  # One-shot runner for argv or shell commands.
+  def self.run(command : String, *, rows : Int32 = 24, columns : Int32 = 80, &stream_callback : String -> Nil) : Tuple(String, Int32)
+    Command.new(command, rows: rows, columns: columns).execute_inside_pty(&stream_callback)
   end
 
-  def self.run(command : Array(String), &stream_callback : String -> Nil) : Tuple(String, Int32)
-    Command.new(command).execute_inside_pty(&stream_callback)
+  def self.run(command : Array(String), *, rows : Int32 = 24, columns : Int32 = 80, &stream_callback : String -> Nil) : Tuple(String, Int32)
+    Command.new(command, rows: rows, columns: columns).execute_inside_pty(&stream_callback)
   end
 
-  def self.run(command : String) : Tuple(String, Int32)
-    Command.new(command).execute_inside_pty
+  def self.run(command : String, *, rows : Int32 = 24, columns : Int32 = 80) : Tuple(String, Int32)
+    Command.new(command, rows: rows, columns: columns).execute_inside_pty
   end
 
-  def self.run(command : Array(String)) : Tuple(String, Int32)
-    Command.new(command).execute_inside_pty
+  def self.run(command : Array(String), *, rows : Int32 = 24, columns : Int32 = 80) : Tuple(String, Int32)
+    Command.new(command, rows: rows, columns: columns).execute_inside_pty
   end
 end

@@ -10,8 +10,8 @@ describe PTY::Command do
       chunks << chunk
     end
 
-    output.should contain("streamed-pty-output")
-    chunks.join.should contain("streamed-pty-output")
+    output.gsub("\r\n", "\n").should contain("streamed-pty-output\n")
+    chunks.join.should eq(output)
     exit_code.should eq(0)
   end
 
@@ -24,12 +24,21 @@ describe PTY::Command do
     exit_code.should eq(23)
   end
 
-  it "connects all standard streams to a terminal" do
-    command = PTY::Command.new("if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then printf pty-is-a-terminal; else printf not-a-terminal; fi")
+  it "connects all standard streams to a terminal and supplies a useful default size" do
+    command = PTY::Command.new("if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then stty size; else printf not-a-terminal; fi")
 
     output, exit_code = command.execute_inside_pty { |_chunk| }
 
-    output.should contain("pty-is-a-terminal")
+    output.should contain("24 80")
+    exit_code.should eq(0)
+  end
+
+  it "supports a caller-specified terminal size" do
+    command = PTY::Command.new("stty size", rows: 42, columns: 120)
+
+    output, exit_code = command.execute_inside_pty { |_chunk| }
+
+    output.should contain("42 120")
     exit_code.should eq(0)
   end
 
@@ -44,9 +53,11 @@ describe PTY::Command do
 
   it "does not wait forever for descendants which inherit the PTY" do
     command = PTY::Command.new("sleep 30 </dev/tty >/dev/tty 2>&1 & printf leader-exited; exit 0")
+    started_at = Time.monotonic
 
     output, exit_code = command.execute_inside_pty { |_chunk| }
 
+    (Time.monotonic - started_at).should be < 3.seconds
     output.should contain("leader-exited")
     exit_code.should eq(0)
   end
@@ -57,6 +68,15 @@ describe PTY::Command do
     _output, exit_code = command.execute_inside_pty { |_chunk| }
 
     exit_code.should eq(127)
+  end
+
+  it "validates argv and terminal dimensions" do
+    expect_raises(ArgumentError, "PTY command must not be empty") do
+      PTY::Command.new([] of String)
+    end
+    expect_raises(ArgumentError, "PTY rows must be between 1 and 65535") do
+      PTY::Command.new("true", rows: 0)
+    end
   end
 
   it "propagates stream callback errors after cleaning up the child" do
@@ -75,6 +95,16 @@ describe PTY do
     output, exit_code = PTY.run(["/bin/sh", "-c", "printf direct-argv"])
 
     output.should contain("direct-argv")
+    exit_code.should eq(0)
+  end
+
+  it "streams data through the one-shot shell API" do
+    chunks = [] of String
+    output, exit_code = PTY.run("printf 'one-shot-stream'", rows: 30, columns: 100) do |chunk|
+      chunks << chunk
+    end
+
+    output.should eq(chunks.join)
     exit_code.should eq(0)
   end
 end

@@ -29,14 +29,24 @@ private def monitor_parent_stream(master_io : IO::FileDescriptor, process : Proc
     end
   end
 
-  status = process.wait
-  terminate_child_group(process.pid.to_i32)
-  stream_error = stream_done.receive
-  raise stream_error if stream_error
+  status : Process::Status? = nil
+  wait_error : Exception? = nil
+  begin
+    status = process.wait
+  rescue ex
+    wait_error = ex
+  ensure
+    terminate_child_group(process.pid.to_i32)
+  end
 
-  exit_code = if status.normal_exit?
-                status.exit_code
-              elsif signal = status.exit_signal?
+  stream_error = stream_done.receive
+  raise wait_error if wait_error
+  raise stream_error if stream_error
+  child_status = status || raise("PTY child process completed without a status")
+
+  exit_code = if child_status.normal_exit?
+                child_status.exit_code
+              elsif signal = child_status.exit_signal?
                 128 + signal.value
               else
                 1

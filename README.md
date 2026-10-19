@@ -1,10 +1,10 @@
 # crystal.pty
 
-A Linux PTY command runner for Crystal. The library allocates a pseudo-terminal, attaches a child process to it, streams terminal output, and returns the child's exit status.
+A Linux PTY command runner for Crystal. It allocates a pseudo-terminal, attaches a child process to it, streams terminal output and returns the child's exit status.
 
 ## Existing API used by tmux.run
 
-The current three-argument API remains supported:
+The three-argument constructor remains source-compatible:
 
 ```crystal
 command = PTY::Command.new(command_string, index, run_id)
@@ -13,13 +13,13 @@ output, exit_code = command.execute_inside_pty do |chunk|
 end
 ```
 
-`output` contains the captured terminal transcript; `exit_code` is the child's exit code, or `128 + signal` when it was terminated by a signal. The callback receives chunks as they are read. PTY output is a single combined terminal stream, not separate stdout and stderr streams.
+`output` is the captured terminal transcript; `exit_code` is the normal exit code, or `128 + signal number` when the child was terminated by a signal. The callback receives each chunk as it is read. PTY output is a single combined terminal stream, not separate stdout and stderr streams.
 
-The `index` and `run_id` constructor arguments are retained for compatibility; they are no longer used to create temporary status files. The child status comes from `waitpid`.
+The legacy `index` and `run_id` arguments remain accepted, but are no longer used to create temporary status files.
 
-## Preferred API
+## One-shot API
 
-Use an argument array to avoid shell parsing when a shell isn't needed:
+Prefer an argv array when shell parsing is not required:
 
 ```crystal
 output, exit_code = PTY.run(["/usr/bin/printf", "hello\\n"]) do |chunk|
@@ -33,18 +33,24 @@ Use a shell string only when shell syntax is intended:
 output, exit_code = PTY.run("printf 'hello\\n'; exit 3")
 ```
 
-The returned transcript preserves terminal control characters and line endings. Apply ANSI stripping or other presentation transformations in the consumer, not in this library.
+The terminal size defaults to 24 rows by 80 columns and can be customized:
+
+```crystal
+output, exit_code = PTY.run("stty size", rows: 40, columns: 120)
+```
+
+The transcript preserves terminal control characters and line endings. Apply ANSI stripping or presentation transformations in the consumer.
 
 ## Reliability contract
 
-- Child exit status is collected with `waitpid`; no temporary status files are created.
+- Child status is obtained through Crystal's process-wait API; no status files are created.
 - Output is drained concurrently with process monitoring, preventing large terminal output from deadlocking against a full PTY buffer.
-- PTY read errors at terminal shutdown are treated as end-of-stream.
+- PTY read errors during terminal shutdown are treated as end-of-stream.
 - If the main command exits while descendants still hold the terminal open, the process group receives SIGHUP and then SIGKILL after a short grace period.
-- Callback exceptions terminate the child process group, wait for cleanup, and are re-raised to the caller.
-- Standard input, output and error are attached to the PTY. The default `TERM` is `xterm-256color` unless the child environment already defines it.
+- Callback exceptions terminate the child process group, wait for cleanup, and are re-raised.
+- stdin, stdout and stderr are attached to the PTY. The child inherits its environment; if `TERM` is unset, it defaults to `xterm-256color` for the command.
 
-This runner is intended for one-shot commands. It is not yet a general long-lived interactive-session API with explicit input forwarding and dynamic window resizing.
+This is a one-shot runner, not a general long-lived interactive-session API with explicit input forwarding and dynamic window resizing.
 
 ## Development
 
@@ -52,6 +58,7 @@ This runner is intended for one-shot commands. It is not yet a general long-live
 bundle install
 bundle exec rake
 crystal spec
+bundle exec rspec
 ```
 
-The GitHub Actions workflow runs source generation, builds the CLI target, and executes the PTY lifecycle regression specs on Linux.
+GitHub Actions regenerates the sources, builds the CLI target, checks generated-source consistency, and runs Crystal lifecycle specs plus the Ruby CLI smoke test on Linux.

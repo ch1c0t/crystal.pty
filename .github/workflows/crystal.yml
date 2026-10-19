@@ -9,6 +9,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        crystal: ["1.15.1", "latest"]
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -17,10 +21,14 @@ jobs:
           bundler-cache: true
       - uses: crystal-lang/install-crystal@v1
         with:
-          crystal: latest
+          crystal: ${{ matrix.crystal }}
       - name: Install Crystal dependencies
         run: shards install
       - name: Generate sources and build
         run: bundle exec rake
+      - name: Verify generated sources are committed
+        run: git diff --exit-code -- src
       - name: Run PTY regression specs
         run: crystal spec
+      - name: Run CLI smoke tests
+        run: bundle exec rspec
