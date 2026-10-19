@@ -50,7 +50,7 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int
       end
       exit_code = read_status_file(status_path) || 127
       break
-    after 10.milliseconds
+    when timeout(10.milliseconds)
     end
   end
 
@@ -58,7 +58,7 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int
     select
     when stream_error = stream_done.receive
       stream_finished = true
-    after 2.seconds
+    when timeout(2.seconds)
       # Only use process-group cleanup if descendants keep the slave open.
       terminate_child_group(pid)
       stream_error = stream_done.receive
