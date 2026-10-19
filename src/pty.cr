@@ -5,7 +5,7 @@ module PTY
     fun fork : Int32
     fun _exit(status : Int32) : NoReturn
     fun dup2(oldfd : Int32, newfd : Int32) : Int32
-        
+    
     struct WinSize
       ws_row : UInt16
       ws_col : UInt16
@@ -55,7 +55,7 @@ module PTY
                    else
                      C.openpty(pointerof(master_fd), pointerof(slave_fd), nil, nil, nil)
                    end
-
+        
           raise "Error: OS failed to allocate PTY descriptors." if result == -1
           {master_fd, slave_fd}
         end
