@@ -5,7 +5,7 @@ describe PTY::Session do
   # Separate writes must reach one surviving shell; otherwise environment and
   # working-directory state would be lost between interaction steps.
   it "preserves process state across repeated writes" do
-    session = PTY::Session.new(["/bin/sh"])
+    session = PTY::Session.new(["/bin/sh", "-i"])
     session.start
     session.write("export SESSION_VALUE=persistent\n")
     session.write("printf 'session-value:%s\\n' \"$SESSION_VALUE\"\n")
