@@ -4,6 +4,8 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, status_re
   C.close(slave_fd)
   C.close(status_write_fd)
   master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
+  master_io.read_timeout = 50.milliseconds
+  command_finished = Atomic(Bool).new(false)
   status_io = IO::FileDescriptor.new(status_read_fd, close_on_finalize: true)
   accumulated_buffer = IO::Memory.new
   stream_done = Channel(Exception?).new(1)
@@ -13,7 +15,19 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, status_re
     stream_error : Exception? = nil
     begin
       io_buffer = Bytes.new(4096)
-      while (bytes_read = master_io.read(io_buffer)) > 0
+      finished_at : Time::Instant? = nil
+      loop do
+        if command_finished.get
+          finished_at ||= Time.instant
+          break if Time.instant - finished_at >= 250.milliseconds
+        end
+        begin
+          bytes_read = master_io.read(io_buffer)
+        rescue ex : IO::TimeoutError
+          break if command_finished.get
+          next
+        end
+        break if bytes_read <= 0
         chunk = String.new(io_buffer[0, bytes_read])
         accumulated_buffer.write(io_buffer[0, bytes_read])
         begin
@@ -53,8 +67,9 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, status_re
   end
 
   exit_code, status_error = status_done.receive
-  terminate_child_group(pid)
+  command_finished.set(true)
   stream_error = stream_done.receive
+  terminate_child_group(pid)
   raise stream_error if stream_error
   raise status_error if status_error
 
