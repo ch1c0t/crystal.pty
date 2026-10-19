@@ -15,7 +15,7 @@ end
 
 `output` is the captured terminal transcript; `exit_code` is the normal exit code, or `128 + signal number` when a command is terminated by a signal. The callback receives each chunk as it is read. PTY output is a single combined terminal stream, not separate stdout and stderr streams.
 
-The `index` and `run_id` parameters remain accepted for source compatibility. The child's exit status is reported through a dedicated pipe rather than a shared temporary file; this avoids relying on `waitpid` when the host Crystal runtime has already reaped the forked child.
+The `index` and `run_id` parameters remain accepted for source compatibility. Each invocation uses a unique temporary status file, written to a temporary path and atomically renamed when the command status is ready. This avoids relying on `waitpid` when the host Crystal runtime may already have reaped the forked child.
 
 ## One-shot API
 
@@ -42,10 +42,10 @@ output, exit_code = PTY.run("stty size", rows: 40, columns: 120)
 ## Reliability contract
 
 - Child launch uses `openpty`, `fork`, `login_tty` and `exec`; child-side launch failures terminate through `_exit(127)`.
-- A private pipe reports the exact command exit code without a temporary status file.
-- The parent closes its copies of the slave and status writer, then drains PTY output concurrently with status collection.
+- The child reports its command status through a unique temporary file and an atomic rename.
+- A blocking PTY reader drains output concurrently; the runner waits for natural PTY EOF after status is reported, preserving output already queued by the terminal.
 - Linux PTY `EIO` on final slave closure is treated as end-of-stream.
-- If the main command exits while descendants still hold the slave terminal, the command process group receives SIGHUP and then SIGKILL after a short grace period.
+- If descendants keep the slave terminal open after the command status is reported, the runner allows up to two seconds for natural EOF, then sends SIGHUP and SIGKILL to the command process group.
 - Callback exceptions terminate the command process group, complete reader cleanup, and are re-raised.
 - stdin, stdout and stderr are attached to the controlling PTY. The child inherits the environment; if `TERM` is unset, it defaults to `xterm-256color` in the child.
 

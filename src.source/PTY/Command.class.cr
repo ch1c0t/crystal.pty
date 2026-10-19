@@ -1,15 +1,17 @@
 getter raw_string : String
 getter rows : Int32?
 getter columns : Int32?
+getter status_path : String
 
 @argv : Array(String)?
 
 # Compatibility constructor used by tmux.run. The index and run_id remain part
-# of the API; child status is reported through a private pipe.
+# of the public API; a unique status file tracks command completion.
 def initialize(@raw_string : String, _index : Int32, _run_id : Int64, *, rows : Int32? = nil, columns : Int32? = nil)
   @argv = nil
   @rows = rows
   @columns = columns
+  @status_path = "/tmp/#{UUID.random}.pty_status"
   validate_window_size
 end
 
@@ -17,6 +19,7 @@ def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = 
   @argv = nil
   @rows = rows
   @columns = columns
+  @status_path = "/tmp/#{UUID.random}.pty_status"
   validate_window_size
 end
 
@@ -29,33 +32,22 @@ def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = 
   @raw_string = argv.join(" ")
   @rows = rows
   @columns = columns
+  @status_path = "/tmp/#{UUID.random}.pty_status"
   validate_window_size
 end
 
 def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
   master_fd, slave_fd = allocate_pty(@rows, @columns)
-  pipe_fds = StaticArray(Int32, 2).new(0)
-
-  if LibC.pipe(pipe_fds) == -1
-    C.close(master_fd)
-    C.close(slave_fd)
-    raise "pipe failed while starting PTY command"
-  end
-
-  status_read_fd = pipe_fds[0]
-  status_write_fd = pipe_fds[1]
   pid = C.fork
 
   if pid < 0
     C.close(master_fd)
     C.close(slave_fd)
-    C.close(status_read_fd)
-    C.close(status_write_fd)
     raise "fork failed while starting PTY command"
   elsif pid == 0
-    spawn_child(master_fd, slave_fd, status_read_fd, status_write_fd)
+    spawn_child(master_fd, slave_fd)
   else
-    monitor_parent_stream(master_fd, slave_fd, status_read_fd, status_write_fd, pid, &stream_callback)
+    monitor_parent_stream(master_fd, slave_fd, pid, @status_path, &stream_callback)
   end
 end
 

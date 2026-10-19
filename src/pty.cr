@@ -1,18 +1,19 @@
+require "uuid"
+
 module PTY
   lib C
     fun openpty(amaster : Int32*, aslave : Int32*, name : UInt8*, termp : Void*, winp : Void*) : Int32
     fun login_tty(fd : Int32) : Int32
     fun fork : Int32
     fun _exit(status : Int32) : NoReturn
-    fun dup2(oldfd : Int32, newfd : Int32) : Int32
-    
+
     struct WinSize
       ws_row : UInt16
       ws_col : UInt16
       ws_xpixel : UInt16
       ws_ypixel : UInt16
     end
-    
+
     fun kill(pid : Int32, signal : Int32) : Int32
     fun close(fd : Int32) : Int32
   end
@@ -62,45 +63,19 @@ module PTY
       end
     
       module MonitorParentStream
-        # The status pipe is independent of the PTY stream, so a Crystal SIGCHLD handler
-        # cannot consume the child's status before the command runner sees it.
-        private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, status_read_fd : Int32, status_write_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
+        # Drain PTY output with a blocking reader while waiting for command completion.
+        # The status file provides command status; PTY EOF remains the stream's end condition.
+        private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int32, status_path : String, &stream_callback : String -> Nil) : Tuple(String, Int32)
           C.close(slave_fd)
-          C.close(status_write_fd)
           master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
-          master_io.read_timeout = 50.milliseconds
-          command_finished = Atomic(Bool).new(false)
-          status_io = IO::FileDescriptor.new(status_read_fd, close_on_finalize: true)
           accumulated_buffer = IO::Memory.new
           stream_done = Channel(Exception?).new(1)
-          status_done = Channel(Tuple(Int32?, Exception?)).new(1)
-        
+
           spawn do
             stream_error : Exception? = nil
             begin
               io_buffer = Bytes.new(4096)
-              finished_at : Time::Instant? = nil
-              last_data_at : Time::Instant? = nil
-              loop do
-                if command_finished.get
-                  now = Time.instant
-                  finished_at ||= now
-                  last_data_at ||= now
-                  break if now - last_data_at >= 100.milliseconds
-                  break if now - finished_at >= 2.seconds
-                end
-                begin
-                  bytes_read = master_io.read(io_buffer)
-                rescue ex : IO::TimeoutError
-                  if command_finished.get
-                    now = Time.instant
-                    break if last_data_at && now - last_data_at >= 100.milliseconds
-                    break if finished_at && now - finished_at >= 2.seconds
-                  end
-                  next
-                end
-                break if bytes_read <= 0
-                last_data_at = Time.instant if command_finished.get
+              while (bytes_read = master_io.read(io_buffer)) > 0
                 chunk = String.new(io_buffer[0, bytes_read])
                 accumulated_buffer.write(io_buffer[0, bytes_read])
                 begin
@@ -120,75 +95,94 @@ module PTY
               stream_done.send(stream_error)
             end
           end
-        
-          spawn do
-            exit_code : Int32? = nil
-            status_error : Exception? = nil
-            begin
-              if line = status_io.gets
-                exit_code = line.strip.to_i?
+
+          exit_code : Int32? = nil
+          stream_error : Exception? = nil
+          stream_finished = false
+
+          loop do
+            if code = read_status_file(status_path)
+              exit_code = code
+              break
+            end
+
+            select
+            when stream_error = stream_done.receive
+              stream_finished = true
+              if stream_error
+                terminate_child_group(pid)
+                raise stream_error
               end
-            rescue ex
-              status_error = ex
-            ensure
-              begin
-                status_io.close
-              rescue
-              end
-              status_done.send({exit_code, status_error})
+              exit_code = read_status_file(status_path) || 127
+              break
+            when timeout(10.milliseconds)
             end
           end
-        
-          exit_code, status_error = status_done.receive
-          command_finished.set(true)
-          stream_error = stream_done.receive
-          terminate_child_group(pid)
+
+          unless stream_finished
+            select
+            when stream_error = stream_done.receive
+              stream_finished = true
+            when timeout(2.seconds)
+              # Only use process-group cleanup if descendants keep the slave open.
+              terminate_child_group(pid)
+              stream_error = stream_done.receive
+              stream_finished = true
+            end
+          end
+
+          terminate_child_group(pid) unless stream_finished
           raise stream_error if stream_error
-          raise status_error if status_error
-        
+
           {accumulated_buffer.to_s, exit_code || 127}
         ensure
           master_io.try &.close
+          File.delete(status_path) if File.exists?(status_path)
+          File.delete("#{status_path}.tmp") if File.exists?("#{status_path}.tmp")
         end
+
       end
     
       module SpawnChild
         # login_tty creates a new session, makes the slave the controlling terminal,
         # and connects it to stdin, stdout and stderr before replacing this process.
-        private def spawn_child(master_fd : Int32, slave_fd : Int32, status_read_fd : Int32, status_write_fd : Int32) : NoReturn
+        private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
           C.close(master_fd)
-          C.close(status_read_fd)
           C._exit(127) if C.login_tty(slave_fd) == -1
-        
-          # POSIX /bin/sh supports single-digit redirection descriptors. Put the
-          # private status writer on fd 3 after login_tty has established stdio.
-          status_fd = status_write_fd
-          if status_fd != 3
-            C._exit(127) if C.dup2(status_fd, 3) == -1
-            C.close(status_fd)
-            status_fd = 3
-          end
-        
+
           ENV["TERM"] ||= "xterm-256color"
-        
+
           begin
             if argv = @argv
-              script = "( exec #{status_fd}>&-; \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" >&#{status_fd}; exit \"$command_status\""
+              script = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
               Process.exec("/bin/sh", ["-c", script, "pty-command"] + argv)
             else
               command = @raw_string.empty? ? ":" : @raw_string
-              script = "( exec #{status_fd}>&-; #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" >&#{status_fd}; exit \"$command_status\""
+              script = "( #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
               Process.exec("/bin/sh", ["-c", script])
             end
           rescue
             C._exit(127)
           end
-        
+
           C._exit(127)
         end
+
       end
     
       module WaitForChild
+        # Read a completed status file. The temporary file is renamed atomically by
+        # the child, so the parent never observes a partially written exit status.
+        private def read_status_file(status_path : String) : Int32?
+          return unless File.exists?(status_path)
+
+          contents = File.read(status_path).strip
+          return if contents.empty?
+
+          File.delete(status_path)
+          contents.to_i?
+        end
+
         # A command can exit while background descendants retain the slave terminal.
         # Signal the dedicated process group, then force it down after a short grace.
         private def terminate_child_group(pid : Int32) : Nil
@@ -197,6 +191,7 @@ module PTY
             C.kill(-pid, 9) # SIGKILL
           end
         end
+
       end
     
       include AllocatePTY
@@ -208,73 +203,65 @@ module PTY
     getter raw_string : String
     getter rows : Int32?
     getter columns : Int32?
-    
+    getter status_path : String
+
     @argv : Array(String)?
-    
+
     # Compatibility constructor used by tmux.run. The index and run_id remain part
-    # of the API; child status is reported through a private pipe.
+    # of the public API; a unique status file tracks command completion.
     def initialize(@raw_string : String, _index : Int32, _run_id : Int64, *, rows : Int32? = nil, columns : Int32? = nil)
       @argv = nil
       @rows = rows
       @columns = columns
+      @status_path = "/tmp/#{UUID.random}.pty_status"
       validate_window_size
     end
-    
+
     def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
       @argv = nil
       @rows = rows
       @columns = columns
+      @status_path = "/tmp/#{UUID.random}.pty_status"
       validate_window_size
     end
-    
+
     # Prefer argv when shell parsing is not required.
     def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
       raise ArgumentError.new("PTY command must not be empty") if argv.empty?
       raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
-    
+
       @argv = argv.dup
       @raw_string = argv.join(" ")
       @rows = rows
       @columns = columns
+      @status_path = "/tmp/#{UUID.random}.pty_status"
       validate_window_size
     end
-    
+
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
       master_fd, slave_fd = allocate_pty(@rows, @columns)
-      pipe_fds = StaticArray(Int32, 2).new(0)
-    
-      if LibC.pipe(pipe_fds) == -1
-        C.close(master_fd)
-        C.close(slave_fd)
-        raise "pipe failed while starting PTY command"
-      end
-    
-      status_read_fd = pipe_fds[0]
-      status_write_fd = pipe_fds[1]
       pid = C.fork
-    
+
       if pid < 0
         C.close(master_fd)
         C.close(slave_fd)
-        C.close(status_read_fd)
-        C.close(status_write_fd)
         raise "fork failed while starting PTY command"
       elsif pid == 0
-        spawn_child(master_fd, slave_fd, status_read_fd, status_write_fd)
+        spawn_child(master_fd, slave_fd)
       else
-        monitor_parent_stream(master_fd, slave_fd, status_read_fd, status_write_fd, pid, &stream_callback)
+        monitor_parent_stream(master_fd, slave_fd, pid, @status_path, &stream_callback)
       end
     end
-    
+
     def execute_inside_pty : Tuple(String, Int32)
       execute_inside_pty { |_chunk| }
     end
-    
+
     private def validate_window_size : Nil
       if @rows.nil? != @columns.nil?
         raise ArgumentError.new("PTY rows and columns must be provided together")
       end
-    
+
       if rows = @rows
         raise ArgumentError.new("PTY rows must be between 1 and 65535") if rows < 1 || rows > 65_535
       end
@@ -282,7 +269,9 @@ module PTY
         raise ArgumentError.new("PTY columns must be between 1 and 65535") if columns < 1 || columns > 65_535
       end
     end
-    
+
     include Helpers
+
+
   end
 end
