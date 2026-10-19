@@ -8,8 +8,8 @@ describe PTY::Session do
     chunks = [] of String
     session = PTY::Session.new(["/bin/sh"])
     session.start { |chunk| chunks << chunk }
-    session.write("printf 'session-streamed-output\\n'\\n")
-    session.write("exit 0\\n")
+    session.write("printf 'session-streamed-output\\n'\n")
+    session.write("exit 0\n")
 
     session.wait.should eq(0)
     session.output.should contain("session-streamed-output")

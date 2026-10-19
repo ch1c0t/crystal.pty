@@ -12,9 +12,9 @@ session.start do |chunk|
   print chunk
 end
 
-session.write("export PTY_SESSION_VALUE=kept\\n")
-session.write("printf '%s\\n' \"$PTY_SESSION_VALUE\"\\n")
-session.write("exit\\n")
+session.write("export PTY_SESSION_VALUE=kept\n")
+session.write("printf '%s\\n' \"$PTY_SESSION_VALUE\"\n")
+session.write("exit\n")
 exit_code = session.wait
 ```
 

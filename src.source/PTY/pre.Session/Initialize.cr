@@ -1,23 +1,8 @@
 def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
   @argv = nil
-  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
-  initialize_state(rows, columns)
-end
-
-def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
-  raise ArgumentError.new("PTY command must not be empty") if argv.empty?
-  raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
-
-  @argv = argv.dup
-  @raw_string = argv.join(" ")
-  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
-  initialize_state(rows, columns)
-end
-
-private def initialize_state(rows : Int32?, columns : Int32?) : Nil
   @rows = rows
   @columns = columns
-  validate_dimensions(rows, columns)
+  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
   @pid = nil
   @exit_code = nil
   @master_fd = nil
@@ -29,6 +14,30 @@ private def initialize_state(rows : Int32?, columns : Int32?) : Nil
   @terminated = false
   @reader_finished = false
   @stream_error = nil
+  validate_dimensions(rows, columns)
+end
+
+def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
+  raise ArgumentError.new("PTY command must not be empty") if argv.empty?
+  raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
+
+  @argv = argv.dup
+  @raw_string = argv.join(" ")
+  @rows = rows
+  @columns = columns
+  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+  @pid = nil
+  @exit_code = nil
+  @master_fd = nil
+  @master_io = nil
+  @reader_done = nil
+  @output_buffer = IO::Memory.new
+  @started = false
+  @completed = false
+  @terminated = false
+  @reader_finished = false
+  @stream_error = nil
+  validate_dimensions(rows, columns)
 end
 
 private def validate_dimensions(rows : Int32?, columns : Int32?) : Nil

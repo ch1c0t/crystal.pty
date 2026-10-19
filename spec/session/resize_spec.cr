@@ -8,8 +8,8 @@ describe PTY::Session do
     session = PTY::Session.new(["/bin/sh"], rows: 24, columns: 80)
     session.start
     session.resize(rows: 42, columns: 120)
-    session.write("stty size\\n")
-    session.write("exit 0\\n")
+    session.write("stty size\n")
+    session.write("exit 0\n")
 
     session.wait.should eq(0)
     session.output.should contain("42 120")

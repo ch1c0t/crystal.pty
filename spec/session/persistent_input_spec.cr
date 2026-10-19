@@ -7,9 +7,9 @@ describe PTY::Session do
   it "preserves process state across repeated writes" do
     session = PTY::Session.new(["/bin/sh"])
     session.start
-    session.write("export SESSION_VALUE=persistent\\n")
-    session.write("printf 'session-value:%s\\n' \"$SESSION_VALUE\"\\n")
-    session.write("exit 0\\n")
+    session.write("export SESSION_VALUE=persistent\n")
+    session.write("printf 'session-value:%s\\n' \"$SESSION_VALUE\"\n")
+    session.write("exit 0\n")
 
     session.wait.should eq(0)
     session.output.should contain("session-value:persistent")
