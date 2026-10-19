@@ -9,10 +9,12 @@ describe PTY::Command do
       PTY::Command.new([] of String)
     end
     expect_raises(ArgumentError, "PTY rows and columns must be provided together") do
-      PTY::Command.new("true", rows: 30)
+      session = PTY::Session.new rows: 30
+      PTY::Command.new("true", session)
     end
     expect_raises(ArgumentError, "PTY rows must be between 1 and 65535") do
-      PTY::Command.new("true", rows: 0, columns: 80)
+      session = PTY::Session.new rows: 0, columns: 80
+      PTY::Command.new("true", session)
     end
   end
 end

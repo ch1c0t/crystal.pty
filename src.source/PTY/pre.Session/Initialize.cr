@@ -1,3 +1,6 @@
+def initialize
+end
+
 def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
   @argv = nil
   @rows = rows

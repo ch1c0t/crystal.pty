@@ -1,44 +1,17 @@
 # Compatibility constructor used by tmux.run. The index and run_id remain part
-# of the public API; each execution delegates to a Session using this status path.
+# of the public API; each execution delegates to a Session.
 def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
-  @argv = nil
-  @rows = nil
-  @columns = nil
 end
 
-def initialize(@raw_string : String)
-  @argv = nil
-  @rows = nil
-  @columns = nil
+def initialize(@raw_string : String, @session : Session? = nil)
 end
 
-def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
-  @argv = nil
-  @rows = rows
-  @columns = columns
-  validate_window_size
-end
-
-def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
+def initialize(argv : Array(String), @session : Session? = nil)
   raise ArgumentError.new("PTY command must not be empty") if argv.empty?
   raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
 
   @argv = argv.dup
   @raw_string = argv.join(" ")
-  @rows = rows
-  @columns = columns
-  validate_window_size
 end
 
-private def validate_window_size : Nil
-  if @rows.nil? != @columns.nil?
-    raise ArgumentError.new("PTY rows and columns must be provided together")
-  end
-
-  if rows = @rows
-    raise ArgumentError.new("PTY rows must be between 1 and 65535") if rows < 1 || rows > 65_535
-  end
-  if columns = @columns
-    raise ArgumentError.new("PTY columns must be between 1 and 65535") if columns < 1 || columns > 65_535
-  end
-end
+@argv : (Array(String))?

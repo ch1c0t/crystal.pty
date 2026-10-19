@@ -1,22 +1,29 @@
 getter raw_string : String
-getter rows : Int32?
-getter columns : Int32?
-
-@argv : Array(String)?
+getter session : Session?
 
 include Initialize
 
 def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
-  session = if argv = @argv
-              Session.new(argv, rows: @rows, columns: @columns)
-            else
-              Session.new(@raw_string, rows: @rows, columns: @columns)
-            end
-  session.start(&stream_callback)
+  session = @session || create_and_start_session_with(stream_callback)
+
   exit_code = session.wait
   {session.output, exit_code}
 end
 
 def execute_inside_pty : Tuple(String, Int32)
   execute_inside_pty { |_chunk| }
+end
+
+def create_session : Session
+  if argv = @argv
+    Session.new(argv)
+  else
+    Session.new(@raw_string)
+  end
+end
+
+def create_and_start_session_with(stream_callback : String -> Nil) : Session
+  session = create_session
+  session.start(&stream_callback)
+  session
 end

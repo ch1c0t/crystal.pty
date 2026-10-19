@@ -43,72 +43,52 @@ module PTY
   class Command
     module Initialize
       # Compatibility constructor used by tmux.run. The index and run_id remain part
-      # of the public API; each execution delegates to a Session using this status path.
+      # of the public API; each execution delegates to a Session.
       def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
-        @argv = nil
-        @rows = nil
-        @columns = nil
       end
       
-      def initialize(@raw_string : String)
-        @argv = nil
-        @rows = nil
-        @columns = nil
+      def initialize(@raw_string : String, @session : Session? = nil)
       end
       
-      def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
-        @argv = nil
-        @rows = rows
-        @columns = columns
-        validate_window_size
-      end
-      
-      def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
+      def initialize(argv : Array(String), @session : Session? = nil)
         raise ArgumentError.new("PTY command must not be empty") if argv.empty?
         raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
       
         @argv = argv.dup
         @raw_string = argv.join(" ")
-        @rows = rows
-        @columns = columns
-        validate_window_size
       end
       
-      private def validate_window_size : Nil
-        if @rows.nil? != @columns.nil?
-          raise ArgumentError.new("PTY rows and columns must be provided together")
-        end
-      
-        if rows = @rows
-          raise ArgumentError.new("PTY rows must be between 1 and 65535") if rows < 1 || rows > 65_535
-        end
-        if columns = @columns
-          raise ArgumentError.new("PTY columns must be between 1 and 65535") if columns < 1 || columns > 65_535
-        end
-      end
+      @argv : (Array(String))?
     end
   
     getter raw_string : String
-    getter rows : Int32?
-    getter columns : Int32?
-    
-    @argv : Array(String)?
+    getter session : Session?
     
     include Initialize
     
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
-      session = if argv = @argv
-                  Session.new(argv, rows: @rows, columns: @columns)
-                else
-                  Session.new(@raw_string, rows: @rows, columns: @columns)
-                end
-      session.start(&stream_callback)
+      session = @session || create_and_start_session_with(stream_callback)
+    
       exit_code = session.wait
       {session.output, exit_code}
     end
     
     def execute_inside_pty : Tuple(String, Int32)
       execute_inside_pty { |_chunk| }
+    end
+    
+    def create_session : Session
+      if argv = @argv
+        Session.new(argv)
+      else
+        Session.new(@raw_string)
+      end
+    end
+    
+    def create_and_start_session_with(stream_callback : String -> Nil) : Session
+      session = create_session
+      session.start(&stream_callback)
+      session
     end
   end
 
@@ -271,6 +251,9 @@ module PTY
     end
   
     module Initialize
+      def initialize
+      end
+      
       def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
         @argv = nil
         @rows = rows
