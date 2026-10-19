@@ -1,4 +1,5 @@
 def initialize
+  initialize("", rows: nil, columns: nil)
 end
 
 def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
