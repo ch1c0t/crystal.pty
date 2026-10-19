@@ -44,5 +44,5 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int
 
   {accumulated_buffer.to_s, exit_code}
 ensure
-  master_io.close
+  master_io.try &.close
 end
