@@ -1,6 +1,7 @@
 def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
   @argv = nil
-  initialize_state(rows, columns, status_path)
+  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+  initialize_state(rows, columns)
 end
 
 def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
@@ -9,13 +10,13 @@ def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = 
 
   @argv = argv.dup
   @raw_string = argv.join(" ")
-  initialize_state(rows, columns, status_path)
+  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+  initialize_state(rows, columns)
 end
 
-private def initialize_state(rows : Int32?, columns : Int32?, status_path : String?) : Nil
+private def initialize_state(rows : Int32?, columns : Int32?) : Nil
   @rows = rows
   @columns = columns
-  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
   validate_dimensions(rows, columns)
   @pid = nil
   @exit_code = nil
