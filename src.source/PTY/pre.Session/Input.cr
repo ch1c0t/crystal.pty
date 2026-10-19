@@ -2,7 +2,9 @@ def write(data : String) : Nil
   raise "PTY session has not been started" unless @started
   raise "PTY session has completed" if @completed
 
-  @master_io.not_nil!.write(data.to_slice)
+  master_io = @master_io.not_nil!
+  master_io.write(data.to_slice)
+  master_io.flush
 end
 
 def resize(*, rows : Int32, columns : Int32) : Nil
