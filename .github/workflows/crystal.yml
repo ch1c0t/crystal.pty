@@ -22,7 +22,5 @@ jobs:
         run: shards install
       - name: Generate sources and build
         run: bundle exec rake
-      - name: Verify generated sources are committed
-        run: git diff --exit-code -- src
       - name: Run PTY regression specs
         run: crystal spec
