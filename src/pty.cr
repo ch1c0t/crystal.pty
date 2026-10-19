@@ -45,50 +45,27 @@ module PTY
       # Compatibility constructor used by tmux.run. The index and run_id remain part
       # of the public API; each execution delegates to a Session.
       def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
+        @session = Session.new
       end
       
       def initialize(@raw_string : String, @session : Session? = nil)
+        @session ||= Session.new
       end
-      
-      def initialize(argv : Array(String), @session : Session? = nil)
-        raise ArgumentError.new("PTY command must not be empty") if argv.empty?
-        raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
-      
-        @argv = argv.dup
-        @raw_string = argv.join(" ")
-      end
-      
-      @argv : (Array(String))?
     end
   
     getter raw_string : String
-    getter session : Session?
+    getter session : Session
     
     include Initialize
     
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
-      session = @session || create_and_start_session_with(stream_callback)
-    
-      exit_code = session.wait
-      {session.output, exit_code}
+      @session.execute(@raw_string, stream_callback)
+      exit_code = @session.wait
+      {@session.output, exit_code}
     end
     
     def execute_inside_pty : Tuple(String, Int32)
       execute_inside_pty { |_chunk| }
-    end
-    
-    def create_session : Session
-      if argv = @argv
-        Session.new(argv)
-      else
-        Session.new(@raw_string)
-      end
-    end
-    
-    def create_and_start_session_with(stream_callback : String -> Nil) : Session
-      session = create_session
-      session.start(&stream_callback)
-      session
     end
   end
 
