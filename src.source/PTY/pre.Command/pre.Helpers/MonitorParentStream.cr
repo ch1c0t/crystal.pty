@@ -16,7 +16,7 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int
           stream_callback.call(chunk)
         rescue ex
           stream_error = ex
-          PTYLibC.kill(-pid, 15)
+          C.kill(-pid, 15)
           break
         end
       end
@@ -24,7 +24,7 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int
       # Linux PTYs commonly report EIO when the final slave descriptor closes.
     rescue ex
       stream_error = ex
-      PTYLibC.kill(-pid, 15)
+      C.kill(-pid, 15)
     ensure
       stream_done.send(stream_error)
     end
