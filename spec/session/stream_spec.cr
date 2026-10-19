@@ -6,7 +6,7 @@ describe PTY::Session do
   # this guards against losing or reordering chunks while the reader runs.
   it "streams output and retains the same complete transcript" do
     chunks = [] of String
-    session = PTY::Session.new(["/bin/sh", "-c", "printf 'stream-begin'; read value; printf 'stream-end:%s\\n' \"$value\""])
+    session = PTY::Session.new(["/usr/bin/timeout", "5", "/bin/sh", "-c", "printf 'stream-begin'; read value; printf 'stream-end:%s\\n' \"$value\""])
     session.start { |chunk| chunks << chunk }
     session.write("payload\n")
 
