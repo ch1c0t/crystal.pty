@@ -53,10 +53,14 @@ describe PTY::Command do
 
   it "drains output larger than a PTY buffer while the child runs" do
     command = PTY::Command.new("yes pty-output | head -c 131072")
+    chunks = [] of String
 
-    output, exit_code = command.execute_inside_pty { |_chunk| }
+    output, exit_code = command.execute_inside_pty do |chunk|
+      chunks << chunk
+    end
 
     output.bytesize.should be >= 131_072
+    chunks.join.should eq(output)
     exit_code.should eq(0)
   end
 
