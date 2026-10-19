@@ -1,10 +1,16 @@
 # Compatibility constructor used by tmux.run. The index and run_id remain part
-# of the public API; a unique status file tracks command completion.
+# of the public API; each execution delegates to a Session using this status path.
 def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
+  @argv = nil
+  @rows = nil
+  @columns = nil
   @status_path = "/tmp/#{UUID.random}.pty_status"
 end
 
 def initialize(@raw_string : String)
+  @argv = nil
+  @rows = nil
+  @columns = nil
   @status_path = "/tmp/#{UUID.random}.pty_status"
 end
 
