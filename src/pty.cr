@@ -5,6 +5,7 @@ module PTY
     fun fork : Int32
     fun _exit(status : Int32) : NoReturn
     fun waitpid(pid : Int32, status : Int32*, options : Int32) : Int32
+    fun __errno_location : Int32*
     
     struct WinSize
       ws_row : UInt16
@@ -151,7 +152,9 @@ module PTY
             elsif waited_pid == 0
               sleep(10.milliseconds)
             else
-              raise "waitpid failed for PTY child #{pid}"
+              errno = C.__errno_location.value
+              next if errno == 4 # EINTR
+              raise "waitpid failed for PTY child #{pid}: errno #{errno}"
             end
           end
         end

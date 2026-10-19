@@ -11,7 +11,9 @@ private def wait_for_child(pid : Int32) : Int32
     elsif waited_pid == 0
       sleep(10.milliseconds)
     else
-      raise "waitpid failed for PTY child #{pid}"
+      errno = C.__errno_location.value
+      next if errno == 4 # EINTR
+      raise "waitpid failed for PTY child #{pid}: errno #{errno}"
     end
   end
 end
