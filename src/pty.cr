@@ -69,6 +69,7 @@ module PTY
         end
       end
     
+      module MonitorParentStream
         # The status pipe is independent of the PTY stream, so a Crystal SIGCHLD handler
         # cannot consume the child's status before the command runner sees it.
         private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, status_read_fd : Int32, status_write_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
@@ -171,6 +172,8 @@ module PTY
           master_io.try &.close
         end
 
+      end
+    
       module SpawnChild
         # login_tty creates a new session, makes the slave the controlling terminal,
         # and connects it to stdin, stdout and stderr before replacing this process.
