@@ -80,18 +80,27 @@ module PTY
             begin
               io_buffer = Bytes.new(4096)
               finished_at : Time::Instant? = nil
+              last_data_at : Time::Instant? = nil
               loop do
                 if command_finished.get
-                  finished_at ||= Time.instant
-                  break if Time.instant - finished_at >= 250.milliseconds
+                  now = Time.instant
+                  finished_at ||= now
+                  last_data_at ||= now
+                  break if now - last_data_at >= 100.milliseconds
+                  break if now - finished_at >= 2.seconds
                 end
                 begin
                   bytes_read = master_io.read(io_buffer)
                 rescue ex : IO::TimeoutError
-                  break if command_finished.get
+                  if command_finished.get
+                    now = Time.instant
+                    break if last_data_at && now - last_data_at >= 100.milliseconds
+                    break if finished_at && now - finished_at >= 2.seconds
+                  end
                   next
                 end
                 break if bytes_read <= 0
+                last_data_at = Time.instant if command_finished.get
                 chunk = String.new(io_buffer[0, bytes_read])
                 accumulated_buffer.write(io_buffer[0, bytes_read])
                 begin
