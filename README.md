@@ -61,4 +61,4 @@ crystal spec
 bundle exec rspec
 ```
 
-GitHub Actions regenerates the sources, builds the CLI target, checks generated-source consistency, and runs Crystal lifecycle specs plus the Ruby CLI smoke test on Linux.
+GitHub Actions regenerates the sources, builds the CLI target, verifies generated-source consistency (ignoring formatting-only differences), and runs Crystal lifecycle specs plus the Ruby CLI smoke test on Linux.
