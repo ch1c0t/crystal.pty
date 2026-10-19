@@ -1,19 +1,11 @@
-# Close the inherited master, attach the slave as the controlling terminal,
-# and replace the forked process with the requested command.
-private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
-  C.close(master_fd)
-  C._exit(127) if C.login_tty(slave_fd) == -1
-  ENV["TERM"] ||= "xterm-256color"
-
-  begin
-    if argv = @argv
-      Process.exec(argv[0], argv)
-    else
-      Process.exec("/bin/sh", ["-c", @raw_string])
-    end
-  rescue
-    C._exit(127)
-  end
-
-  C._exit(127)
+# Use the platform process abstraction so Crystal owns and reaps the child.
+# setsid creates a dedicated process group and -c makes the PTY its controlling
+# terminal, allowing cleanup even if the command starts background descendants.
+private def launch_process(slave_io : IO::FileDescriptor) : Process
+  command = if argv = @argv
+              argv
+            else
+              ["/bin/sh", "-c", @raw_string]
+            end
+  Process.new(["setsid", "-c"] + command, input: slave_io, output: slave_io, error: slave_io)
 end
