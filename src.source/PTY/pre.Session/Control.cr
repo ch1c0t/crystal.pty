@@ -6,6 +6,16 @@ def start : self
   start_with_callback(->(chunk : String) { nil })
 end
 
+# Starts a one-shot shell command while retaining the Session transcript and
+# streaming callback APIs used by PTY::Command.
+def execute(raw_string : String, stream_callback : String -> Nil) : self
+  raise "PTY session has already been started" if @started
+
+  @raw_string = raw_string
+  @argv = nil
+  start(&stream_callback)
+end
+
 private def start_with_callback(callback : Proc(String, Nil)) : self
   raise "PTY session has already been started" if @started
 
