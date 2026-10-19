@@ -34,15 +34,16 @@ end
 
 def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
   master_fd, slave_fd = allocate_pty(@rows, @columns)
-  pipe_fds = [0, 0] of Int32
+  pipe_fds = StaticArray(Int32, 2).new(0)
 
-  if C.pipe(pipe_fds.to_unsafe) == -1
+  if LibC.pipe(pipe_fds) == -1
     C.close(master_fd)
     C.close(slave_fd)
     raise "pipe failed while starting PTY command"
   end
 
-  status_read_fd, status_write_fd = pipe_fds
+  status_read_fd = pipe_fds[0]
+  status_write_fd = pipe_fds[1]
   pid = C.fork
 
   if pid < 0
