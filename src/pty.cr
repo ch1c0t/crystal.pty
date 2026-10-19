@@ -87,7 +87,7 @@ module PTY
 
           {accumulated_buffer.to_s, exit_code}
         ensure
-          master_io.close
+          master_io.try &.close
         end
       end
 
