@@ -2,7 +2,7 @@
 private def wait_for_child(pid : Int32) : Int32
   loop do
     status = 0
-    waited_pid = PTYLibC.waitpid(pid, pointerof(status), 1)
+    waited_pid = C.waitpid(pid, pointerof(status), 1)
 
     if waited_pid == pid
       signal = status & 0x7f
@@ -20,8 +20,8 @@ end
 # Once the command leader exits, stop descendants which inherited the slave.
 # A short grace period lets ordinary SIGHUP handlers clean up before SIGKILL.
 private def terminate_child_group(pid : Int32) : Nil
-  if PTYLibC.kill(-pid, 1) == 0
+  if C.kill(-pid, 1) == 0
     sleep(50.milliseconds)
-    PTYLibC.kill(-pid, 9)
+    C.kill(-pid, 9)
   end
 end
