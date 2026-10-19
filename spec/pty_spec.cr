@@ -1,6 +1,11 @@
 require "spec"
 require "../src/pty"
 
+require "./session/persistent_input_spec"
+require "./session/resize_spec"
+require "./session/stream_spec"
+require "./session/terminate_spec"
+
 describe PTY do
   it "offers the one-shot argv API" do
     output, exit_code = PTY.run(["/bin/sh", "-c", "printf direct-argv"])
