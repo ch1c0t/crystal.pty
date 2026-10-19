@@ -26,5 +26,23 @@ private def start_with_callback(callback : Proc(String, Nil)) : self
   @reader_done = Channel(Exception?).new(1)
   @started = true
   spawn { read_output(callback) }
+  wait_until_ready
   self
+end
+
+private def wait_until_ready : Nil
+  deadline = Time.instant + 2.seconds
+  until File.exists?(@ready_path)
+    if Time.instant >= deadline
+      terminate_child_group(@pid.not_nil!)
+      wait_for_reader
+      cleanup_session
+      raise "PTY child did not become ready"
+    end
+    sleep(10.milliseconds)
+  end
+
+  File.delete(@ready_path)
+ensure
+  File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
 end

@@ -3,6 +3,7 @@ def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = 
   @rows = rows
   @columns = columns
   @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+  @ready_path = "#{@status_path}.ready"
   @pid = nil
   @exit_code = nil
   @master_fd = nil
@@ -26,6 +27,7 @@ def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = 
   @rows = rows
   @columns = columns
   @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+  @ready_path = "#{@status_path}.ready"
   @pid = nil
   @exit_code = nil
   @master_fd = nil
