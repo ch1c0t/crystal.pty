@@ -2,8 +2,8 @@ getter raw_string : String
 
 @argv : Array(String)?
 
-# Compatibility constructor used by tmux.run. Index/run_id were only used to
-# name a temporary status file and are retained so existing callers keep working.
+# Compatibility constructor used by tmux.run. The index and run_id are
+# retained for source compatibility; status files are no longer created.
 def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
   @argv = nil
 end
@@ -23,17 +23,20 @@ end
 
 def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
   master_fd, slave_fd = allocate_pty
+  master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
+  slave_io = IO::FileDescriptor.new(slave_fd, close_on_finalize: true)
 
-  pid = C.fork
-  if pid < 0
-    C.close(master_fd)
-    C.close(slave_fd)
-    raise "fork failed while starting PTY command"
-  elsif pid == 0
-    spawn_child(master_fd, slave_fd)
-  else
-    monitor_parent_stream(master_fd, slave_fd, pid, &stream_callback)
+  begin
+    process = launch_process(slave_io)
+  ensure
+    slave_io.close
   end
+
+  monitor_parent_stream(master_io, process, &stream_callback)
+rescue ex
+  master_io.try &.close
+  slave_io.try &.close
+  raise ex
 end
 
 def execute_inside_pty : Tuple(String, Int32)
