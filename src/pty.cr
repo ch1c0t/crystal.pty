@@ -48,21 +48,18 @@ module PTY
         @argv = nil
         @rows = nil
         @columns = nil
-        @status_path = "/tmp/#{UUID.random}.pty_status"
       end
       
       def initialize(@raw_string : String)
         @argv = nil
         @rows = nil
         @columns = nil
-        @status_path = "/tmp/#{UUID.random}.pty_status"
       end
       
       def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
         @argv = nil
         @rows = rows
         @columns = columns
-        @status_path = "/tmp/#{UUID.random}.pty_status"
         validate_window_size
       end
       
@@ -74,7 +71,6 @@ module PTY
         @raw_string = argv.join(" ")
         @rows = rows
         @columns = columns
-        @status_path = "/tmp/#{UUID.random}.pty_status"
         validate_window_size
       end
       
@@ -91,11 +87,10 @@ module PTY
         end
       end
     end
-
+  
     getter raw_string : String
     getter rows : Int32?
     getter columns : Int32?
-    getter status_path : String
     
     @argv : Array(String)?
     
@@ -103,9 +98,9 @@ module PTY
     
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
       session = if argv = @argv
-                  Session.new(argv, rows: @rows, columns: @columns, status_path: @status_path)
+                  Session.new(argv, rows: @rows, columns: @columns)
                 else
-                  Session.new(@raw_string, rows: @rows, columns: @columns, status_path: @status_path)
+                  Session.new(@raw_string, rows: @rows, columns: @columns)
                 end
       session.start(&stream_callback)
       exit_code = session.wait
@@ -168,7 +163,7 @@ module PTY
         File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
       end
     end
-
+  
     module Helpers
       module AllocatePTY
         private def allocate_pty(rows : Int32?, columns : Int32?) : Tuple(Int32, Int32)
@@ -189,7 +184,7 @@ module PTY
           {master_fd, slave_fd}
         end
       end
-
+    
       module ReadOutput
         private def read_output(callback : Proc(String, Nil)) : Nil
           error : Exception? = nil
@@ -223,7 +218,7 @@ module PTY
           end
         end
       end
-
+    
       module SpawnChild
         private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
           C.close(master_fd)
@@ -246,7 +241,7 @@ module PTY
           C._exit(127)
         end
       end
-
+    
       module WaitForChild
         private def read_status_file(status_path : String) : Int32?
           return unless File.exists?(status_path)
@@ -268,19 +263,19 @@ module PTY
           end
         end
       end
-
+    
       include AllocatePTY
       include SpawnChild
       include ReadOutput
       include WaitForChild
     end
-
+  
     module Initialize
-      def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
+      def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
         @argv = nil
         @rows = rows
         @columns = columns
-        @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+        @status_path = "/tmp/#{UUID.random}.pty_status"
         @ready_path = "#{@status_path}.ready"
         @pid = nil
         @exit_code = nil
@@ -296,7 +291,7 @@ module PTY
         validate_dimensions(rows, columns)
       end
       
-      def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
+      def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
         raise ArgumentError.new("PTY command must not be empty") if argv.empty?
         raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
       
@@ -304,7 +299,7 @@ module PTY
         @raw_string = argv.join(" ")
         @rows = rows
         @columns = columns
-        @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+        @status_path = "/tmp/#{UUID.random}.pty_status"
         @ready_path = "#{@status_path}.ready"
         @pid = nil
         @exit_code = nil
@@ -332,7 +327,7 @@ module PTY
         end
       end
     end
-
+  
     module Input
       def write(data : String) : Nil
         raise "PTY session has not been started" unless @started
@@ -371,7 +366,7 @@ module PTY
         end
       end
     end
-
+  
     module Wait
       def wait : Int32
         raise "PTY session has not been started" unless @started
@@ -449,7 +444,7 @@ module PTY
         File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
       end
     end
-
+  
     getter raw_string : String
     getter rows : Int32?
     getter columns : Int32?

@@ -4,21 +4,18 @@ def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
   @argv = nil
   @rows = nil
   @columns = nil
-  @status_path = "/tmp/#{UUID.random}.pty_status"
 end
 
 def initialize(@raw_string : String)
   @argv = nil
   @rows = nil
   @columns = nil
-  @status_path = "/tmp/#{UUID.random}.pty_status"
 end
 
 def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
   @argv = nil
   @rows = rows
   @columns = columns
-  @status_path = "/tmp/#{UUID.random}.pty_status"
   validate_window_size
 end
 
@@ -30,7 +27,6 @@ def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = 
   @raw_string = argv.join(" ")
   @rows = rows
   @columns = columns
-  @status_path = "/tmp/#{UUID.random}.pty_status"
   validate_window_size
 end
 

@@ -1,8 +1,8 @@
-def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
+def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
   @argv = nil
   @rows = rows
   @columns = columns
-  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+  @status_path = "/tmp/#{UUID.random}.pty_status"
   @ready_path = "#{@status_path}.ready"
   @pid = nil
   @exit_code = nil
@@ -18,7 +18,7 @@ def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = 
   validate_dimensions(rows, columns)
 end
 
-def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, status_path : String? = nil)
+def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
   raise ArgumentError.new("PTY command must not be empty") if argv.empty?
   raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
 
@@ -26,7 +26,7 @@ def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = 
   @raw_string = argv.join(" ")
   @rows = rows
   @columns = columns
-  @status_path = status_path || "/tmp/#{UUID.random}.pty_status"
+  @status_path = "/tmp/#{UUID.random}.pty_status"
   @ready_path = "#{@status_path}.ready"
   @pid = nil
   @exit_code = nil
