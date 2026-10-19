@@ -2,8 +2,7 @@ fun openpty(amaster : Int32*, aslave : Int32*, name : UInt8*, termp : Void*, win
 fun login_tty(fd : Int32) : Int32
 fun fork : Int32
 fun _exit(status : Int32) : NoReturn
-fun waitpid(pid : Int32, status : Int32*, options : Int32) : Int32
-fun __errno_location : Int32*
+fun pipe(pipefd : Int32*) : Int32
 
 struct WinSize
   ws_row : UInt16

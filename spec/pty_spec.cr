@@ -62,17 +62,19 @@ describe PTY::Command do
 
   it "does not wait forever for descendants which inherit the PTY" do
     command = PTY::Command.new("sleep 30 </dev/tty >/dev/tty 2>&1 & printf leader-exited; exit 0")
-    started_at = Time.monotonic
+    started_at = Time.instant
 
     output, exit_code = command.execute_inside_pty { |_chunk| }
 
-    (Time.monotonic - started_at).should be < 3.seconds
+    (Time.instant - started_at).should be < 3.seconds
     output.should contain("leader-exited")
     exit_code.should eq(0)
   end
 
-  it "reports signal termination using the shell-compatible exit code" do
-    _output, exit_code = PTY::Command.new("kill -TERM $$").execute_inside_pty { |_chunk| }
+  it "reports a command terminated by a signal using shell-compatible status" do
+    command = PTY::Command.new(["/bin/sh", "-c", "kill -TERM $$"])
+
+    _output, exit_code = command.execute_inside_pty { |_chunk| }
 
     exit_code.should eq(143)
   end

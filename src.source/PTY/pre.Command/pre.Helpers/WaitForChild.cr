@@ -1,23 +1,3 @@
-private def wait_for_child(pid : Int32) : Int32
-  loop do
-    status = 0
-    waited_pid = C.waitpid(pid, pointerof(status), 1) # WNOHANG
-
-    if waited_pid == pid
-      signal = status & 0x7f
-      next if signal == 0x7f
-      return (status >> 8) & 0xff if signal == 0
-      return 128 + signal
-    elsif waited_pid == 0
-      sleep(10.milliseconds)
-    else
-      errno = C.__errno_location.value
-      next if errno == 4 # EINTR
-      raise "waitpid failed for PTY child #{pid}: errno #{errno}"
-    end
-  end
-end
-
 # A command can exit while background descendants retain the slave terminal.
 # Signal the dedicated process group, then force it down after a short grace.
 private def terminate_child_group(pid : Int32) : Nil

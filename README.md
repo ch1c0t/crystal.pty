@@ -1,6 +1,6 @@
 # crystal.pty
 
-A Linux PTY command runner for Crystal. It allocates a pseudo-terminal, forks a child, makes the PTY slave the child's controlling terminal, streams terminal output and returns the child's exit status.
+A Linux PTY command runner for Crystal. It allocates a pseudo-terminal, forks a child, makes the PTY slave the child's controlling terminal, streams terminal output and returns the command's exit status.
 
 ## Existing API used by tmux.run
 
@@ -13,9 +13,9 @@ output, exit_code = command.execute_inside_pty do |chunk|
 end
 ```
 
-`output` is the captured terminal transcript; `exit_code` is the normal exit code, or `128 + signal number` when the child was terminated by a signal. The callback receives each chunk as it is read. PTY output is a single combined terminal stream, not separate stdout and stderr streams.
+`output` is the captured terminal transcript; `exit_code` is the normal exit code, or `128 + signal number` when a command is terminated by a signal. The callback receives each chunk as it is read. PTY output is a single combined terminal stream, not separate stdout and stderr streams.
 
-The `index` and `run_id` parameters are retained for source compatibility. Exit status is collected from the child with `waitpid`, not a status file.
+The `index` and `run_id` parameters remain accepted for source compatibility. The child's exit status is reported through a dedicated pipe rather than a shared temporary file; this avoids relying on `waitpid` when the host Crystal runtime has already reaped the forked child.
 
 ## One-shot API
 
@@ -42,10 +42,11 @@ output, exit_code = PTY.run("stty size", rows: 40, columns: 120)
 ## Reliability contract
 
 - Child launch uses `openpty`, `fork`, `login_tty` and `exec`; child-side launch failures terminate through `_exit(127)`.
-- The parent closes its copy of the slave PTY and drains output concurrently with nonblocking `waitpid` polling, preventing large output from filling the terminal buffer.
+- A private pipe reports the exact command exit code without a temporary status file.
+- The parent closes its copies of the slave and status writer, then drains PTY output concurrently with status collection.
 - Linux PTY `EIO` on final slave closure is treated as end-of-stream.
-- If the main command exits while descendants still hold the terminal open, the process group receives SIGHUP and then SIGKILL after a short grace period.
-- Callback exceptions terminate the command process group, wait for cleanup, and are re-raised.
+- If the main command exits while descendants still hold the slave terminal, the command process group receives SIGHUP and then SIGKILL after a short grace period.
+- Callback exceptions terminate the command process group, complete reader cleanup, and are re-raised.
 - stdin, stdout and stderr are attached to the controlling PTY. The child inherits the environment; if `TERM` is unset, it defaults to `xterm-256color` in the child.
 
 This is a one-shot runner, not a general long-lived interactive-session API with input forwarding and dynamic window resizing.

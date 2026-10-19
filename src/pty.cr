@@ -4,8 +4,7 @@ module PTY
     fun login_tty(fd : Int32) : Int32
     fun fork : Int32
     fun _exit(status : Int32) : NoReturn
-    fun waitpid(pid : Int32, status : Int32*, options : Int32) : Int32
-    fun __errno_location : Int32*
+    fun pipe(pipefd : Int32*) : Int32
     
     struct WinSize
       ws_row : UInt16
@@ -63,13 +62,16 @@ module PTY
       end
     
       module MonitorParentStream
-        # Close the parent's copy of the slave and drain the master concurrently with
-        # waitpid, preventing verbose commands from blocking on a full terminal buffer.
-        private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
+        # The status pipe is independent of the PTY stream, so a Crystal SIGCHLD handler
+        # cannot consume the child's status before the command runner sees it.
+        private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, status_read_fd : Int32, status_write_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
           C.close(slave_fd)
+          C.close(status_write_fd)
           master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
+          status_io = IO::FileDescriptor.new(status_read_fd, close_on_finalize: true)
           accumulated_buffer = IO::Memory.new
           stream_done = Channel(Exception?).new(1)
+          status_done = Channel(Tuple(Int32?, Exception?)).new(1)
         
           spawn do
             stream_error : Exception? = nil
@@ -96,20 +98,31 @@ module PTY
             end
           end
         
-          exit_code : Int32? = nil
-          wait_error : Exception? = nil
-          begin
-            exit_code = wait_for_child(pid)
-          rescue ex
-            wait_error = ex
-          ensure
-            terminate_child_group(pid)
+          spawn do
+            exit_code : Int32? = nil
+            status_error : Exception? = nil
+            begin
+              if line = status_io.gets
+                exit_code = line.strip.to_i?
+              end
+            rescue ex
+              status_error = ex
+            ensure
+              begin
+                status_io.close
+              rescue
+              end
+              status_done.send({exit_code, status_error})
+            end
           end
         
+          exit_code, status_error = status_done.receive
+          terminate_child_group(pid)
           stream_error = stream_done.receive
-          raise wait_error if wait_error
           raise stream_error if stream_error
-          {accumulated_buffer.to_s, exit_code || 1}
+          raise status_error if status_error
+        
+          {accumulated_buffer.to_s, exit_code || 127}
         ensure
           master_io.try &.close
         end
@@ -118,17 +131,21 @@ module PTY
       module SpawnChild
         # login_tty creates a new session, makes the slave the controlling terminal,
         # and connects it to stdin, stdout and stderr before replacing this process.
-        private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
+        private def spawn_child(master_fd : Int32, slave_fd : Int32, status_read_fd : Int32, status_write_fd : Int32) : NoReturn
           C.close(master_fd)
+          C.close(status_read_fd)
           C._exit(127) if C.login_tty(slave_fd) == -1
         
           ENV["TERM"] ||= "xterm-256color"
         
           begin
             if argv = @argv
-              Process.exec(argv[0], argv)
+              script = "( exec #{status_write_fd}>&-; \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" >&#{status_write_fd}; exit \"$command_status\""
+              Process.exec("/bin/sh", ["-c", script, "pty-command"] + argv)
             else
-              Process.exec("/bin/sh", ["-c", @raw_string])
+              command = @raw_string.empty? ? ":" : @raw_string
+              script = "( exec #{status_write_fd}>&-; #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" >&#{status_write_fd}; exit \"$command_status\""
+              Process.exec("/bin/sh", ["-c", script])
             end
           rescue
             C._exit(127)
@@ -139,26 +156,6 @@ module PTY
       end
     
       module WaitForChild
-        private def wait_for_child(pid : Int32) : Int32
-          loop do
-            status = 0
-            waited_pid = C.waitpid(pid, pointerof(status), 1) # WNOHANG
-        
-            if waited_pid == pid
-              signal = status & 0x7f
-              next if signal == 0x7f
-              return (status >> 8) & 0xff if signal == 0
-              return 128 + signal
-            elsif waited_pid == 0
-              sleep(10.milliseconds)
-            else
-              errno = C.__errno_location.value
-              next if errno == 4 # EINTR
-              raise "waitpid failed for PTY child #{pid}: errno #{errno}"
-            end
-          end
-        end
-        
         # A command can exit while background descendants retain the slave terminal.
         # Signal the dedicated process group, then force it down after a short grace.
         private def terminate_child_group(pid : Int32) : Nil
@@ -211,16 +208,27 @@ module PTY
     
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
       master_fd, slave_fd = allocate_pty(@rows, @columns)
+      pipe_fds = [0, 0] of Int32
+    
+      if C.pipe(pipe_fds.to_unsafe) == -1
+        C.close(master_fd)
+        C.close(slave_fd)
+        raise "pipe failed while starting PTY command"
+      end
+    
+      status_read_fd, status_write_fd = pipe_fds
       pid = C.fork
     
       if pid < 0
         C.close(master_fd)
         C.close(slave_fd)
+        C.close(status_read_fd)
+        C.close(status_write_fd)
         raise "fork failed while starting PTY command"
       elsif pid == 0
-        spawn_child(master_fd, slave_fd)
+        spawn_child(master_fd, slave_fd, status_read_fd, status_write_fd)
       else
-        monitor_parent_stream(master_fd, slave_fd, pid, &stream_callback)
+        monitor_parent_stream(master_fd, slave_fd, status_read_fd, status_write_fd, pid, &stream_callback)
       end
     end
     

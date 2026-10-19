@@ -1,10 +1,13 @@
-# Close the parent's copy of the slave and drain the master concurrently with
-# waitpid, preventing verbose commands from blocking on a full terminal buffer.
-private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
+# The status pipe is independent of the PTY stream, so a Crystal SIGCHLD handler
+# cannot consume the child's status before the command runner sees it.
+private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, status_read_fd : Int32, status_write_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
   C.close(slave_fd)
+  C.close(status_write_fd)
   master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
+  status_io = IO::FileDescriptor.new(status_read_fd, close_on_finalize: true)
   accumulated_buffer = IO::Memory.new
   stream_done = Channel(Exception?).new(1)
+  status_done = Channel(Tuple(Int32?, Exception?)).new(1)
 
   spawn do
     stream_error : Exception? = nil
@@ -31,20 +34,31 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int
     end
   end
 
-  exit_code : Int32? = nil
-  wait_error : Exception? = nil
-  begin
-    exit_code = wait_for_child(pid)
-  rescue ex
-    wait_error = ex
-  ensure
-    terminate_child_group(pid)
+  spawn do
+    exit_code : Int32? = nil
+    status_error : Exception? = nil
+    begin
+      if line = status_io.gets
+        exit_code = line.strip.to_i?
+      end
+    rescue ex
+      status_error = ex
+    ensure
+      begin
+        status_io.close
+      rescue
+      end
+      status_done.send({exit_code, status_error})
+    end
   end
 
+  exit_code, status_error = status_done.receive
+  terminate_child_group(pid)
   stream_error = stream_done.receive
-  raise wait_error if wait_error
   raise stream_error if stream_error
-  {accumulated_buffer.to_s, exit_code || 1}
+  raise status_error if status_error
+
+  {accumulated_buffer.to_s, exit_code || 127}
 ensure
   master_io.try &.close
 end
