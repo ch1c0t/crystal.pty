@@ -1,15 +1,11 @@
-lib C
-  fun waitpid(pid : Int32, status : Int32*, options : Int32) : Int32
-  fun kill(pid : Int32, signal : Int32) : Int32
-  fun close(fd : Int32) : Int32
-end
+require "./c"
 
 module PTY
   class Command
     module Helpers
       module AllocatePTY
         private def allocate_pty : Tuple(Int32, Int32)
-          if C.openpty(out master_fd, out slave_fd, nil, nil, nil) == -1
+          if PTYLibC.openpty(out master_fd, out slave_fd, nil, nil, nil) == -1
             raise "Error: OS failed to allocate PTY descriptors."
           end
           {master_fd, slave_fd}
@@ -18,8 +14,8 @@ module PTY
 
       module SpawnChild
         private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
-          C.close(master_fd)
-          C._exit(127) if C.login_tty(slave_fd) == -1
+          PTYLibC.close(master_fd)
+          PTYLibC._exit(127) if PTYLibC.login_tty(slave_fd) == -1
           ENV["TERM"] ||= "xterm-256color"
 
           begin
@@ -29,16 +25,16 @@ module PTY
               Process.exec("/bin/sh", ["-c", @raw_string])
             end
           rescue
-            C._exit(127)
+            PTYLibC._exit(127)
           end
 
-          C._exit(127)
+          PTYLibC._exit(127)
         end
       end
 
       module MonitorParentStream
         private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
-          C.close(slave_fd)
+          PTYLibC.close(slave_fd)
           master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
           accumulated_buffer = IO::Memory.new
           stream_done = Channel(Exception?).new(1)
@@ -54,7 +50,7 @@ module PTY
                   stream_callback.call(chunk)
                 rescue ex
                   stream_error = ex
-                  C.kill(-pid, 15)
+                  PTYLibC.kill(-pid, 15)
                   break
                 end
               end
@@ -62,7 +58,7 @@ module PTY
               # Linux PTYs commonly report EIO when the final slave descriptor closes.
             rescue ex
               stream_error = ex
-              C.kill(-pid, 15)
+              PTYLibC.kill(-pid, 15)
             ensure
               stream_done.send(stream_error)
             end
@@ -90,7 +86,7 @@ module PTY
         private def wait_for_child(pid : Int32) : Int32
           loop do
             status = 0
-            waited_pid = C.waitpid(pid, pointerof(status), 1)
+            waited_pid = PTYLibC.waitpid(pid, pointerof(status), 1)
 
             if waited_pid == pid
               signal = status & 0x7f
@@ -106,9 +102,9 @@ module PTY
         end
 
         private def terminate_child_group(pid : Int32) : Nil
-          if C.kill(-pid, 1) == 0
+          if PTYLibC.kill(-pid, 1) == 0
             sleep(50.milliseconds)
-            C.kill(-pid, 9)
+            PTYLibC.kill(-pid, 9)
           end
         end
       end
@@ -141,10 +137,10 @@ module PTY
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
       master_fd, slave_fd = allocate_pty
 
-      pid = C.fork
+      pid = PTYLibC.fork
       if pid < 0
-        C.close(master_fd)
-        C.close(slave_fd)
+        PTYLibC.close(master_fd)
+        PTYLibC.close(slave_fd)
         raise "fork failed while starting PTY command"
       elsif pid == 0
         spawn_child(master_fd, slave_fd)
