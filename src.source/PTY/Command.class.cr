@@ -24,10 +24,10 @@ end
 def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
   master_fd, slave_fd = allocate_pty
 
-  pid = C.fork
+  pid = PTYLibC.fork
   if pid < 0
-    C.close(master_fd)
-    C.close(slave_fd)
+    PTYLibC.close(master_fd)
+    PTYLibC.close(slave_fd)
     raise "fork failed while starting PTY command"
   elsif pid == 0
     spawn_child(master_fd, slave_fd)
