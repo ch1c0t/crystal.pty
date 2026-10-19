@@ -4,6 +4,5 @@ def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
   @session = Session.new
 end
 
-def initialize(@raw_string : String, @session : Session? = nil)
-  @session ||= Session.new
+def initialize(@raw_string : String, @session : Session = Session.new)
 end

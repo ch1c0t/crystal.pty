@@ -48,8 +48,7 @@ module PTY
         @session = Session.new
       end
       
-      def initialize(@raw_string : String, @session : Session? = nil)
-        @session ||= Session.new
+      def initialize(@raw_string : String, @session : Session = Session.new)
       end
     end
   
