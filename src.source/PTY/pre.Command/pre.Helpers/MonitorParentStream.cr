@@ -32,6 +32,7 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int
   end
 
   exit_code : Int32? = nil
+  stream_error : Exception? = nil
   stream_finished = false
 
   loop do
