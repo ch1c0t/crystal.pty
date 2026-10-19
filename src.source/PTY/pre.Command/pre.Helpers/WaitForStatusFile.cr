@@ -1,10 +1,27 @@
-# Helper 4: Blocks until the status sync file has completed writing
-private def wait_for_status_file : Int32
-  while !File.exists?(@status_path)
-    sleep(50.milliseconds)
-  end
+# Poll waitpid without blocking the Crystal scheduler that drains PTY output.
+private def wait_for_child(pid : Int32) : Int32
+  loop do
+    status = 0
+    waited_pid = C.waitpid(pid, pointerof(status), 1)
 
-  exit_code = File.read(@status_path).strip.to_i
-  File.delete(@status_path) if File.exists?(@status_path)
-  exit_code
+    if waited_pid == pid
+      signal = status & 0x7f
+      next if signal == 0x7f
+      return (status >> 8) & 0xff if signal == 0
+      return 128 + signal
+    elsif waited_pid == 0
+      sleep(10.milliseconds)
+    else
+      raise "waitpid failed for PTY child #{pid}"
+    end
+  end
+end
+
+# Once the command leader exits, stop descendants which inherited the slave.
+# A short grace period lets ordinary SIGHUP handlers clean up before SIGKILL.
+private def terminate_child_group(pid : Int32) : Nil
+  if C.kill(-pid, 1) == 0
+    sleep(50.milliseconds)
+    C.kill(-pid, 9)
+  end
 end
