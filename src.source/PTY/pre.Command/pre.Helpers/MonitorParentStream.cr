@@ -1,6 +1,8 @@
-# Drain the PTY concurrently with Process#wait so verbose commands cannot
-# deadlock against a full terminal buffer.
-private def monitor_parent_stream(master_io : IO::FileDescriptor, process : Process, &stream_callback : String -> Nil) : Tuple(String, Int32)
+# Close the parent's copy of the slave and drain the master concurrently with
+# waitpid, preventing verbose commands from blocking on a full terminal buffer.
+private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
+  C.close(slave_fd)
+  master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
   accumulated_buffer = IO::Memory.new
   stream_done = Channel(Exception?).new(1)
 
@@ -15,43 +17,34 @@ private def monitor_parent_stream(master_io : IO::FileDescriptor, process : Proc
           stream_callback.call(chunk)
         rescue ex
           stream_error = ex
-          C.kill(-process.pid.to_i32, 15)
+          C.kill(-pid, 15)
           break
         end
       end
     rescue ex : IO::Error
-      # Linux PTYs commonly report EIO when the final slave closes.
+      # Linux PTYs report EIO when the final slave descriptor closes.
     rescue ex
       stream_error = ex
-      C.kill(-process.pid.to_i32, 15)
+      C.kill(-pid, 15)
     ensure
       stream_done.send(stream_error)
     end
   end
 
-  status : Process::Status? = nil
+  exit_code : Int32? = nil
   wait_error : Exception? = nil
   begin
-    status = process.wait
+    exit_code = wait_for_child(pid)
   rescue ex
     wait_error = ex
   ensure
-    terminate_child_group(process.pid.to_i32)
+    terminate_child_group(pid)
   end
 
   stream_error = stream_done.receive
   raise wait_error if wait_error
   raise stream_error if stream_error
-  child_status = status || raise("PTY child process completed without a status")
-
-  exit_code = if child_status.normal_exit?
-                child_status.exit_code
-              elsif signal = child_status.exit_signal?
-                128 + signal.value
-              else
-                1
-              end
-  {accumulated_buffer.to_s, exit_code}
+  {accumulated_buffer.to_s, exit_code || 1}
 ensure
   master_io.try &.close
 end

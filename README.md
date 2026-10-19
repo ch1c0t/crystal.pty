@@ -1,10 +1,10 @@
 # crystal.pty
 
-A Linux PTY command runner for Crystal. It allocates a pseudo-terminal, attaches a child process to it, streams terminal output and returns the child's exit status.
+A Linux PTY command runner for Crystal. It allocates a pseudo-terminal, forks a child, makes the PTY slave the child's controlling terminal, streams terminal output and returns the child's exit status.
 
 ## Existing API used by tmux.run
 
-The three-argument constructor remains source-compatible:
+The three-argument constructor and streaming callback are preserved:
 
 ```crystal
 command = PTY::Command.new(command_string, index, run_id)
@@ -15,7 +15,7 @@ end
 
 `output` is the captured terminal transcript; `exit_code` is the normal exit code, or `128 + signal number` when the child was terminated by a signal. The callback receives each chunk as it is read. PTY output is a single combined terminal stream, not separate stdout and stderr streams.
 
-The legacy `index` and `run_id` arguments remain accepted, but are no longer used to create temporary status files.
+The `index` and `run_id` parameters are retained for source compatibility. Exit status is collected from the child with `waitpid`, not a status file.
 
 ## One-shot API
 
@@ -33,24 +33,22 @@ Use a shell string only when shell syntax is intended:
 output, exit_code = PTY.run("printf 'hello\\n'; exit 3")
 ```
 
-The terminal size defaults to 24 rows by 80 columns and can be customized:
+When both `rows` and `columns` are supplied, they configure the PTY window size. If omitted, the native `openpty` default is preserved:
 
 ```crystal
 output, exit_code = PTY.run("stty size", rows: 40, columns: 120)
 ```
 
-The transcript preserves terminal control characters and line endings. Apply ANSI stripping or presentation transformations in the consumer.
-
 ## Reliability contract
 
-- Child status is obtained through Crystal's process-wait API; no status files are created.
-- Output is drained concurrently with process monitoring, preventing large terminal output from deadlocking against a full PTY buffer.
-- PTY read errors during terminal shutdown are treated as end-of-stream.
+- Child launch uses `openpty`, `fork`, `login_tty` and `exec`; child-side launch failures terminate through `_exit(127)`.
+- The parent closes its copy of the slave PTY and drains output concurrently with nonblocking `waitpid` polling, preventing large output from filling the terminal buffer.
+- Linux PTY `EIO` on final slave closure is treated as end-of-stream.
 - If the main command exits while descendants still hold the terminal open, the process group receives SIGHUP and then SIGKILL after a short grace period.
-- Callback exceptions terminate the child process group, wait for cleanup, and are re-raised.
-- stdin, stdout and stderr are attached to the PTY. The child inherits its environment; if `TERM` is unset, it defaults to `xterm-256color` for the command.
+- Callback exceptions terminate the command process group, wait for cleanup, and are re-raised.
+- stdin, stdout and stderr are attached to the controlling PTY. The child inherits the environment; if `TERM` is unset, it defaults to `xterm-256color` in the child.
 
-This is a one-shot runner, not a general long-lived interactive-session API with explicit input forwarding and dynamic window resizing.
+This is a one-shot runner, not a general long-lived interactive-session API with input forwarding and dynamic window resizing.
 
 ## Development
 
@@ -61,4 +59,4 @@ crystal spec
 bundle exec rspec
 ```
 
-GitHub Actions regenerates the sources, builds the CLI target, verifies generated-source consistency (ignoring formatting-only differences), and runs Crystal lifecycle specs plus the Ruby CLI smoke test on Linux.
+GitHub Actions regenerates the sources, builds the CLI target, verifies generated-source consistency (ignoring formatting-only differences), and runs the PTY lifecycle regression suite plus Ruby CLI smoke tests on Crystal 1.22.

@@ -1,19 +1,19 @@
 getter raw_string : String
-getter rows : Int32
-getter columns : Int32
+getter rows : Int32?
+getter columns : Int32?
 
 @argv : Array(String)?
 
 # Compatibility constructor used by tmux.run. The index and run_id remain part
-# of the public signature, but no status files are created.
-def initialize(@raw_string : String, _index : Int32, _run_id : Int64, *, rows : Int32 = 24, columns : Int32 = 80)
+# of the API; they are intentionally not needed for child-status collection.
+def initialize(@raw_string : String, _index : Int32, _run_id : Int64, *, rows : Int32? = nil, columns : Int32? = nil)
   @argv = nil
   @rows = rows
   @columns = columns
   validate_window_size
 end
 
-def initialize(@raw_string : String, *, rows : Int32 = 24, columns : Int32 = 80)
+def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
   @argv = nil
   @rows = rows
   @columns = columns
@@ -21,7 +21,7 @@ def initialize(@raw_string : String, *, rows : Int32 = 24, columns : Int32 = 80)
 end
 
 # Prefer argv when shell parsing is not required.
-def initialize(argv : Array(String), *, rows : Int32 = 24, columns : Int32 = 80)
+def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
   raise ArgumentError.new("PTY command must not be empty") if argv.empty?
   raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
 
@@ -34,19 +34,17 @@ end
 
 def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
   master_fd, slave_fd = allocate_pty(@rows, @columns)
-  master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
-  slave_io = IO::FileDescriptor.new(slave_fd, close_on_finalize: true)
+  pid = C.fork
 
-  process = begin
-    launch_process(slave_io)
-  rescue ex
-    master_io.close
-    raise ex
-  ensure
-    slave_io.close
+  if pid < 0
+    C.close(master_fd)
+    C.close(slave_fd)
+    raise "fork failed while starting PTY command"
+  elsif pid == 0
+    spawn_child(master_fd, slave_fd)
+  else
+    monitor_parent_stream(master_fd, slave_fd, pid, &stream_callback)
   end
-
-  monitor_parent_stream(master_io, process, &stream_callback)
 end
 
 def execute_inside_pty : Tuple(String, Int32)
@@ -54,11 +52,15 @@ def execute_inside_pty : Tuple(String, Int32)
 end
 
 private def validate_window_size : Nil
-  if @rows < 1 || @rows > 65_535
-    raise ArgumentError.new("PTY rows must be between 1 and 65535")
+  if @rows.nil? != @columns.nil?
+    raise ArgumentError.new("PTY rows and columns must be provided together")
   end
-  if @columns < 1 || @columns > 65_535
-    raise ArgumentError.new("PTY columns must be between 1 and 65535")
+
+  if rows = @rows
+    raise ArgumentError.new("PTY rows must be between 1 and 65535") if rows < 1 || rows > 65_535
+  end
+  if columns = @columns
+    raise ArgumentError.new("PTY columns must be between 1 and 65535") if columns < 1 || columns > 65_535
   end
 end
 

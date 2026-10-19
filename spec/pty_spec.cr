@@ -2,7 +2,7 @@ require "spec"
 require "../src/pty"
 
 describe PTY::Command do
-  it "preserves the tmux.run constructor and returns streamed output with the real exit code" do
+  it "preserves the tmux.run constructor and streams its terminal output" do
     chunks = [] of String
     command = PTY::Command.new("printf 'streamed-pty-output\\n'", 0, Process.pid.to_i64)
 
@@ -15,7 +15,7 @@ describe PTY::Command do
     exit_code.should eq(0)
   end
 
-  it "returns a nonzero shell exit code without using a status file" do
+  it "returns the shell's real nonzero exit code" do
     command = PTY::Command.new("printf 'before-failure\\n'; exit 23", 1, Process.pid.to_i64)
 
     output, exit_code = command.execute_inside_pty { |_chunk| }
@@ -24,16 +24,25 @@ describe PTY::Command do
     exit_code.should eq(23)
   end
 
-  it "connects all standard streams to a terminal and supplies a useful default size" do
-    command = PTY::Command.new("if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then stty size; else printf not-a-terminal; fi")
+  it "connects stdin, stdout and stderr to the PTY" do
+    command = PTY::Command.new("if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then printf pty-is-a-terminal; else printf not-a-terminal; fi")
 
     output, exit_code = command.execute_inside_pty { |_chunk| }
 
-    output.should contain("24 80")
+    output.should contain("pty-is-a-terminal")
     exit_code.should eq(0)
   end
 
-  it "supports a caller-specified terminal size" do
+  it "preserves the native PTY size when no dimensions are supplied" do
+    command = PTY::Command.new("if [ -t 0 ]; then printf terminal; fi")
+
+    output, exit_code = command.execute_inside_pty { |_chunk| }
+
+    output.should contain("terminal")
+    exit_code.should eq(0)
+  end
+
+  it "supports caller-specified terminal dimensions" do
     command = PTY::Command.new("stty size", rows: 42, columns: 120)
 
     output, exit_code = command.execute_inside_pty { |_chunk| }
@@ -62,6 +71,12 @@ describe PTY::Command do
     exit_code.should eq(0)
   end
 
+  it "reports signal termination using the shell-compatible exit code" do
+    _output, exit_code = PTY::Command.new("kill -TERM $$").execute_inside_pty { |_chunk| }
+
+    exit_code.should eq(143)
+  end
+
   it "returns 127 when an argv executable cannot be started" do
     command = PTY::Command.new(["/definitely/not/a/real/executable"])
 
@@ -74,8 +89,11 @@ describe PTY::Command do
     expect_raises(ArgumentError, "PTY command must not be empty") do
       PTY::Command.new([] of String)
     end
+    expect_raises(ArgumentError, "PTY rows and columns must be provided together") do
+      PTY::Command.new("true", rows: 30)
+    end
     expect_raises(ArgumentError, "PTY rows must be between 1 and 65535") do
-      PTY::Command.new("true", rows: 0)
+      PTY::Command.new("true", rows: 0, columns: 80)
     end
   end
 

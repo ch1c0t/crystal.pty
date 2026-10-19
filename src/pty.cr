@@ -4,6 +4,7 @@ module PTY
     fun login_tty(fd : Int32) : Int32
     fun fork : Int32
     fun _exit(status : Int32) : NoReturn
+    fun waitpid(pid : Int32, status : Int32*, options : Int32) : Int32
     
     struct WinSize
       ws_row : UInt16
@@ -19,19 +20,19 @@ module PTY
   module Run
     # Runs a one-shot command in a pseudo-terminal. The transcript combines stdout
     # and stderr because both are attached to the same terminal.
-    def run(command : String, *, rows : Int32 = 24, columns : Int32 = 80, &stream_callback : String -> Nil) : Tuple(String, Int32)
+    def run(command : String, *, rows : Int32? = nil, columns : Int32? = nil, &stream_callback : String -> Nil) : Tuple(String, Int32)
       Command.new(command, rows: rows, columns: columns).execute_inside_pty(&stream_callback)
     end
     
-    def run(command : Array(String), *, rows : Int32 = 24, columns : Int32 = 80, &stream_callback : String -> Nil) : Tuple(String, Int32)
+    def run(command : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, &stream_callback : String -> Nil) : Tuple(String, Int32)
       Command.new(command, rows: rows, columns: columns).execute_inside_pty(&stream_callback)
     end
     
-    def run(command : String, *, rows : Int32 = 24, columns : Int32 = 80) : Tuple(String, Int32)
+    def run(command : String, *, rows : Int32? = nil, columns : Int32? = nil) : Tuple(String, Int32)
       Command.new(command, rows: rows, columns: columns).execute_inside_pty
     end
     
-    def run(command : Array(String), *, rows : Int32 = 24, columns : Int32 = 80) : Tuple(String, Int32)
+    def run(command : Array(String), *, rows : Int32? = nil, columns : Int32? = nil) : Tuple(String, Int32)
       Command.new(command, rows: rows, columns: columns).execute_inside_pty
     end
   end
@@ -41,24 +42,33 @@ module PTY
   class Command
     module Helpers
       module AllocatePTY
-        private def allocate_pty(rows : Int32, columns : Int32) : Tuple(Int32, Int32)
-          window_size = C::WinSize.new
-          window_size.ws_row = rows.to_u16
-          window_size.ws_col = columns.to_u16
-          window_size.ws_xpixel = 0_u16
-          window_size.ws_ypixel = 0_u16
+        private def allocate_pty(rows : Int32?, columns : Int32?) : Tuple(Int32, Int32)
+          if rows && columns
+            window_size = C::WinSize.new
+            window_size.ws_row = rows.to_u16
+            window_size.ws_col = columns.to_u16
+            window_size.ws_xpixel = 0_u16
+            window_size.ws_ypixel = 0_u16
         
-          if C.openpty(out master_fd, out slave_fd, nil, nil, pointerof(window_size)) == -1
-            raise "Error: OS failed to allocate PTY descriptors."
+            if C.openpty(out master_fd, out slave_fd, nil, nil, pointerof(window_size).as(Void*)) == -1
+              raise "Error: OS failed to allocate PTY descriptors."
+            end
+          else
+            if C.openpty(out master_fd, out slave_fd, nil, nil, nil) == -1
+              raise "Error: OS failed to allocate PTY descriptors."
+            end
           end
+        
           {master_fd, slave_fd}
         end
       end
     
       module MonitorParentStream
-        # Drain the PTY concurrently with Process#wait so verbose commands cannot
-        # deadlock against a full terminal buffer.
-        private def monitor_parent_stream(master_io : IO::FileDescriptor, process : Process, &stream_callback : String -> Nil) : Tuple(String, Int32)
+        # Close the parent's copy of the slave and drain the master concurrently with
+        # waitpid, preventing verbose commands from blocking on a full terminal buffer.
+        private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, pid : Int32, &stream_callback : String -> Nil) : Tuple(String, Int32)
+          C.close(slave_fd)
+          master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
           accumulated_buffer = IO::Memory.new
           stream_done = Channel(Exception?).new(1)
         
@@ -73,65 +83,83 @@ module PTY
                   stream_callback.call(chunk)
                 rescue ex
                   stream_error = ex
-                  C.kill(-process.pid.to_i32, 15)
+                  C.kill(-pid, 15)
                   break
                 end
               end
             rescue ex : IO::Error
-              # Linux PTYs commonly report EIO when the final slave closes.
+              # Linux PTYs report EIO when the final slave descriptor closes.
             rescue ex
               stream_error = ex
-              C.kill(-process.pid.to_i32, 15)
+              C.kill(-pid, 15)
             ensure
               stream_done.send(stream_error)
             end
           end
         
-          status : Process::Status? = nil
+          exit_code : Int32? = nil
           wait_error : Exception? = nil
           begin
-            status = process.wait
+            exit_code = wait_for_child(pid)
           rescue ex
             wait_error = ex
           ensure
-            terminate_child_group(process.pid.to_i32)
+            terminate_child_group(pid)
           end
         
           stream_error = stream_done.receive
           raise wait_error if wait_error
           raise stream_error if stream_error
-          child_status = status || raise("PTY child process completed without a status")
-        
-          exit_code = if child_status.normal_exit?
-                        child_status.exit_code
-                      elsif signal = child_status.exit_signal?
-                        128 + signal.value
-                      else
-                        1
-                      end
-          {accumulated_buffer.to_s, exit_code}
+          {accumulated_buffer.to_s, exit_code || 1}
         ensure
           master_io.try &.close
         end
       end
     
       module SpawnChild
-        # setsid creates a dedicated process group; -c makes the PTY the controlling
-        # terminal. A separate group lets the parent clean up descendants on exit.
-        private def launch_process(slave_io : IO::FileDescriptor) : Process
-          command = if argv = @argv
-                      argv
-                    else
-                      ["/bin/sh", "-c", @raw_string]
-                    end
-          environment = {"TERM" => (ENV["TERM"]? || "xterm-256color")} of String => String?
-          Process.new("setsid", ["-c", "--"] + command, env: environment, input: slave_io, output: slave_io, error: slave_io)
+        # login_tty creates a new session, makes the slave the controlling terminal,
+        # and connects it to stdin, stdout and stderr before replacing this process.
+        private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
+          C.close(master_fd)
+          C._exit(127) if C.login_tty(slave_fd) == -1
+        
+          ENV["TERM"] ||= "xterm-256color"
+        
+          begin
+            if argv = @argv
+              Process.exec(argv[0], argv)
+            else
+              Process.exec("/bin/sh", ["-c", @raw_string])
+            end
+          rescue
+            C._exit(127)
+          end
+        
+          C._exit(127)
         end
       end
     
       module WaitForChild
-        # Called after the main process exits. Descendants can inherit the slave PTY and
-        # keep the master readable forever, so stop the command's remaining process group.
+        private def wait_for_child(pid : Int32) : Int32
+          loop do
+            status = 0
+            waited_pid = C.waitpid(pid, pointerof(status), 1) # WNOHANG
+        
+            if waited_pid == pid
+              signal = status & 0x7f
+              next if signal == 0x7f
+              return (status >> 8) & 0xff if signal == 0
+              return 128 + signal
+            elsif waited_pid == 0
+              sleep(10.milliseconds)
+            else
+              raise "waitpid failed for PTY child #{pid}"
+            end
+          end
+        end
+        
+        # A command can exit while background descendants retain the slave terminal.
+        # Signal the dedicated process group, then force it down after a short grace.
         private def terminate_child_group(pid : Int32) : Nil
           if C.kill(-pid, 1) == 0 # SIGHUP
             sleep(50.milliseconds)
@@ -147,21 +175,21 @@ module PTY
     end
   
     getter raw_string : String
-    getter rows : Int32
-    getter columns : Int32
+    getter rows : Int32?
+    getter columns : Int32?
     
     @argv : Array(String)?
     
     # Compatibility constructor used by tmux.run. The index and run_id remain part
-    # of the public signature, but no status files are created.
-    def initialize(@raw_string : String, _index : Int32, _run_id : Int64, *, rows : Int32 = 24, columns : Int32 = 80)
+    # of the API; they are intentionally not needed for child-status collection.
+    def initialize(@raw_string : String, _index : Int32, _run_id : Int64, *, rows : Int32? = nil, columns : Int32? = nil)
       @argv = nil
       @rows = rows
       @columns = columns
       validate_window_size
     end
     
-    def initialize(@raw_string : String, *, rows : Int32 = 24, columns : Int32 = 80)
+    def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
       @argv = nil
       @rows = rows
       @columns = columns
@@ -169,7 +197,7 @@ module PTY
     end
     
     # Prefer argv when shell parsing is not required.
-    def initialize(argv : Array(String), *, rows : Int32 = 24, columns : Int32 = 80)
+    def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
       raise ArgumentError.new("PTY command must not be empty") if argv.empty?
       raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
     
@@ -182,19 +210,17 @@ module PTY
     
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
       master_fd, slave_fd = allocate_pty(@rows, @columns)
-      master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
-      slave_io = IO::FileDescriptor.new(slave_fd, close_on_finalize: true)
+      pid = C.fork
     
-      process = begin
-        launch_process(slave_io)
-      rescue ex
-        master_io.close
-        raise ex
-      ensure
-        slave_io.close
+      if pid < 0
+        C.close(master_fd)
+        C.close(slave_fd)
+        raise "fork failed while starting PTY command"
+      elsif pid == 0
+        spawn_child(master_fd, slave_fd)
+      else
+        monitor_parent_stream(master_fd, slave_fd, pid, &stream_callback)
       end
-    
-      monitor_parent_stream(master_io, process, &stream_callback)
     end
     
     def execute_inside_pty : Tuple(String, Int32)
@@ -202,11 +228,15 @@ module PTY
     end
     
     private def validate_window_size : Nil
-      if @rows < 1 || @rows > 65_535
-        raise ArgumentError.new("PTY rows must be between 1 and 65535")
+      if @rows.nil? != @columns.nil?
+        raise ArgumentError.new("PTY rows and columns must be provided together")
       end
-      if @columns < 1 || @columns > 65_535
-        raise ArgumentError.new("PTY columns must be between 1 and 65535")
+    
+      if rows = @rows
+        raise ArgumentError.new("PTY rows must be between 1 and 65535") if rows < 1 || rows > 65_535
+      end
+      if columns = @columns
+        raise ArgumentError.new("PTY columns must be between 1 and 65535") if columns < 1 || columns > 65_535
       end
     end
     
