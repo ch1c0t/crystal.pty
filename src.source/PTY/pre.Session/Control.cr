@@ -10,9 +10,8 @@ end
 def execute(raw_string : String, stream_callback : String -> Nil) : self
   raise "PTY session has already been started" if @started
   @raw_string = raw_string
+  @command = raw_string
   start(&stream_callback)
-  write("#{raw_string}\nexit\n")
-  self
 end
 
 private def start_with_callback(callback : Proc(String, Nil)) : self
