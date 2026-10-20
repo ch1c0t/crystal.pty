@@ -271,7 +271,20 @@ module PTY
         @interactive_shell = true
         @rows = rows
         @columns = columns
-        initialize_state(rows, columns)
+        @status_path = "/tmp/#{UUID.random}.pty_status"
+        @ready_path = "#{@status_path}.ready"
+        @pid = nil
+        @exit_code = nil
+        @master_fd = nil
+        @master_io = nil
+        @reader_done = nil
+        @output_buffer = IO::Memory.new
+        @started = false
+        @completed = false
+        @terminated = false
+        @reader_finished = false
+        @stream_error = nil
+        validate_dimensions(rows, columns)
       end
 
       # Direct argv execution remains supported by PTY.run(Array(String)).
@@ -289,10 +302,6 @@ module PTY
         @raw_string = argv.join(" ")
         @rows = rows
         @columns = columns
-        initialize_state(rows, columns)
-      end
-
-      private def initialize_state(rows : Int32?, columns : Int32?) : Nil
         @status_path = "/tmp/#{UUID.random}.pty_status"
         @ready_path = "#{@status_path}.ready"
         @pid = nil
