@@ -6,3 +6,4 @@ fun kill(pid : Int32, signal : Int32) : Int32
 fun close(fd : Int32) : Int32
 fun ioctl(fd : Int32, request : UInt64, argp : Void*) : Int32
 fun tcgetpgrp(fd : Int32) : Int32
+fun waitpid(pid : Int32, status : Int32*, options : Int32) : Int32
