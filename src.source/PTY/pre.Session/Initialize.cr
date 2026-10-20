@@ -1,9 +1,11 @@
-def initialize
-  initialize("", rows: nil, columns: nil)
+def initialize(*, rows : Int32? = nil, columns : Int32? = nil)
+  initialize("", rows: rows, columns: columns)
+  @interactive_shell = true
 end
 
 def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
   @argv = nil
+  @interactive_shell = false
   @rows = rows
   @columns = columns
   @status_path = "/tmp/#{UUID.random}.pty_status"
@@ -27,6 +29,7 @@ def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = 
   raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
 
   @argv = argv.dup
+  @interactive_shell = false
   @raw_string = argv.join(" ")
   @rows = rows
   @columns = columns
