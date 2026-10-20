@@ -25,6 +25,6 @@ jobs:
       - name: Verify generated sources are committed
         run: git diff --ignore-all-space --ignore-blank-lines --exit-code -- src
       - name: Run PTY regression specs
-        run: crystal spec
+        run: timeout 60s crystal spec --verbose
       - name: Run CLI smoke tests
         run: bundle exec rspec
