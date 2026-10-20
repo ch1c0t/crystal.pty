@@ -18,7 +18,13 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
           stream_callback.try(&.call(chunk))
         rescue ex : Exception
           @exception = ex # Save it to re-raise in the main thread
-          break           # Stop reading immediately
+
+          # allows process.wait inside session.wait to return in microseconds.
+          if process = @process
+            Process.signal(Signal::KILL, process.pid) rescue nil
+          end
+
+          break # Exit the reader loop immediately
         end
 
         # Use non-blocking channel send to avoid freezing the reader fiber

@@ -18,4 +18,19 @@ describe PTY::Session do
     chunks.join.should eq(session.output)
     exit_code.should eq(0)
   end
+
+  it "raises callback errors promptly even when the child produces continuous output" do
+    session = PTY::Session.new
+    started_at = Time.instant
+
+    expect_raises(Exception, "callback exploded") do
+      session.start(["/usr/bin/timeout", "--foreground", "--signal=KILL", "2",
+                     "/usr/bin/yes", "x"]) do |_chunk|
+        raise "callback exploded"
+      end
+      session.wait
+    end
+
+    (Time.instant - started_at).should be < 1.second
+  end
 end
