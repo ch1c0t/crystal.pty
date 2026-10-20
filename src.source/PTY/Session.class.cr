@@ -11,6 +11,7 @@ getter output : String = ""
 @master_io : IO::FileDescriptor?
 @channel = Channel(String).new
 @reader_done = Channel(Nil).new
+@exception : Exception? = nil
 
 include Initialize
 include Start

@@ -170,7 +170,13 @@ module PTY
                 chunk = String.new(io_buffer[0, bytes_read])
                 @output += chunk
         
-                stream_callback.try(&.call(chunk))
+                # Wrap the user callback in a begin/rescue block
+                begin
+                  stream_callback.try(&.call(chunk))
+                rescue ex : Exception
+                  @exception = ex # Save it to re-raise in the main thread
+                  break           # Stop reading immediately
+                end
         
                 # Use non-blocking channel send to avoid freezing the reader fiber
                 select
@@ -330,6 +336,12 @@ module PTY
           # Wait for the background stream reader fiber to process all incoming data
           @reader_done.receive?
       
+          # If the background stream fiber caught a callback error, bubble it up now
+          if ex = @exception
+            @exception = nil # Reset state
+            raise ex
+          end
+      
           status.exit_code
         else
           raise "Session context missing: process has not been started yet."
@@ -378,6 +390,7 @@ module PTY
     @master_io : IO::FileDescriptor?
     @channel = Channel(String).new
     @reader_done = Channel(Nil).new
+    @exception : Exception? = nil
     
     include Initialize
     include Start

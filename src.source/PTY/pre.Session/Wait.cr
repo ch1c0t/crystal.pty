@@ -10,6 +10,12 @@ def wait : Int32
     # Wait for the background stream reader fiber to process all incoming data
     @reader_done.receive?
 
+    # If the background stream fiber caught a callback error, bubble it up now
+    if ex = @exception
+      @exception = nil # Reset state
+      raise ex
+    end
+
     status.exit_code
   else
     raise "Session context missing: process has not been started yet."

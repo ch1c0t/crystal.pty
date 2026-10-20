@@ -13,7 +13,13 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
         chunk = String.new(io_buffer[0, bytes_read])
         @output += chunk
 
-        stream_callback.try(&.call(chunk))
+        # Wrap the user callback in a begin/rescue block
+        begin
+          stream_callback.try(&.call(chunk))
+        rescue ex : Exception
+          @exception = ex # Save it to re-raise in the main thread
+          break           # Stop reading immediately
+        end
 
         # Use non-blocking channel send to avoid freezing the reader fiber
         select
