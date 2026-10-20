@@ -31,13 +31,23 @@ describe PTY do
     exit_code.should eq(0)
   end
 
-  it "executes legacy PTY::Command calls through a Session" do
+  it "accepts an existing Session as the second PTY::Command argument" do
     chunks = [] of String
-    command = PTY::Command.new("printf 'command-api'; exit 7", 0, 1_i64)
+    session = PTY::Session.new
+    command = PTY::Command.new("printf 'command-api'; exit 7", session)
     output, exit_code = command.execute_inside_pty { |chunk| chunks << chunk }
 
     output.should contain("command-api")
     output.should eq(chunks.join)
+    command.session.should be(session)
     exit_code.should eq(7)
+  end
+
+  it "keeps the legacy PTY::Command constructor used by tmux.run" do
+    command = PTY::Command.new("printf legacy-command", 0, 1_i64)
+    output, exit_code = command.execute_inside_pty
+
+    output.should contain("legacy-command")
+    exit_code.should eq(0)
   end
 end
