@@ -90,7 +90,7 @@ module PTY
         start_with_callback(->(chunk : String) { nil })
       end
 
-      # Runs a command by sending it to the same interactive shell used by start.
+      # Runs a command with the configured shell using the same PTY lifecycle.
       def execute(raw_string : String, stream_callback : String -> Nil) : self
         raise "PTY session has already been started" if @started
         @raw_string = raw_string
