@@ -250,6 +250,7 @@ module PTY
       include WaitForChild
     end
   
+    module Initialize
       def initialize(
         *,
         name : String = "xterm-256color",
@@ -261,7 +262,6 @@ module PTY
         initialize(ENV["SHELL"]? || "/bin/sh", name: name, rows: rows, columns: columns, cwd: cwd, env: env)
       end
 
-    module Initialize
       def initialize(
         shell : String,
         *,
