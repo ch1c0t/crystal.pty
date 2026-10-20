@@ -32,7 +32,7 @@ module PTY
       session = Session.new(rows: rows, columns: columns)
       Command.new(command, session).execute_inside_pty
     end
-
+    
     # Direct argv execution remains available through PTY.run without expanding
     # PTY::Command beyond its shell-string API.
     def run(command : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, &stream_callback : String -> Nil) : Tuple(String, Int32)
@@ -40,7 +40,7 @@ module PTY
       exit_code = session.wait
       {session.output, exit_code}
     end
-
+    
     def run(command : Array(String), *, rows : Int32? = nil, columns : Int32? = nil) : Tuple(String, Int32)
       run(command, rows: rows, columns: columns) { |_chunk| }
     end
@@ -59,7 +59,7 @@ module PTY
       def initialize(@raw_string : String)
         @session = Session.new
       end
-
+      
       def initialize(@raw_string : String, @session : Session)
       end
     end
@@ -85,11 +85,11 @@ module PTY
       def start(&stream_callback : String -> Nil) : self
         start_with_callback(stream_callback)
       end
-
+      
       def start : self
         start_with_callback(->(chunk : String) { nil })
       end
-
+      
       # Runs a command with the configured shell using the same PTY lifecycle.
       def execute(raw_string : String, stream_callback : String -> Nil) : self
         raise "PTY session has already been started" if @started
@@ -97,10 +97,10 @@ module PTY
         @command = raw_string
         start(&stream_callback)
       end
-
+      
       private def start_with_callback(callback : Proc(String, Nil)) : self
         raise "PTY session has already been started" if @started
-
+      
         master_fd, slave_fd = allocate_pty(@rows, @columns)
         child_pid = C.fork
         if child_pid < 0
@@ -110,7 +110,7 @@ module PTY
         elsif child_pid == 0
           spawn_child(master_fd, slave_fd)
         end
-
+      
         C.close(slave_fd)
         @pid = child_pid
         @master_fd = master_fd
@@ -121,7 +121,7 @@ module PTY
         wait_until_ready
         self
       end
-
+      
       private def wait_until_ready : Nil
         deadline = Time.instant + 2.seconds
         until File.exists?(@ready_path) || File.exists?(@status_path)
@@ -133,13 +133,13 @@ module PTY
           end
           sleep(10.milliseconds)
         end
-
+      
         File.delete(@ready_path) if File.exists?(@ready_path)
       ensure
         File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
       end
     end
-
+  
     module Helpers
       module AllocatePTY
         private def allocate_pty(rows : Int32?, columns : Int32?) : Tuple(Int32, Int32)
@@ -199,7 +199,7 @@ module PTY
         private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
           C.close(master_fd)
           C._exit(127) if C.login_tty(slave_fd) == -1
-
+        
           begin
             ENV["TERM"] = @name
             if env = @env
@@ -207,7 +207,7 @@ module PTY
             end
             Dir.cd(@cwd.not_nil!) if @cwd
             File.write(@ready_path, "ready\\n")
-
+        
             if argv = @argv
               Process.exec(argv.first, argv[1..])
             elsif command = @command
@@ -221,7 +221,7 @@ module PTY
           C._exit(127)
         end
       end
-
+    
       module WaitForChild
         private def terminate_child_group(pid : Int32) : Nil
           groups = [pid] of Int32
@@ -229,14 +229,14 @@ module PTY
             foreground_group = C.tcgetpgrp(fd)
             groups << foreground_group if foreground_group > 0 && foreground_group != pid
           end
-
+        
           groups.each { |group| C.kill(-group, 1) }
           sleep(50.milliseconds)
           groups.each { |group| C.kill(-group, 9) }
           C.kill(pid, 9)
         end
       end
-
+    
       include AllocatePTY
       include SpawnChild
       include ReadOutput
@@ -254,7 +254,7 @@ module PTY
       )
         initialize(ENV["SHELL"]? || "/bin/sh", name: name, rows: rows, columns: columns, cwd: cwd, env: env)
       end
-
+      
       def initialize(
         shell : String,
         *,
@@ -290,12 +290,12 @@ module PTY
         @stream_error = nil
         validate_dimensions(rows, columns)
       end
-
+      
       # Direct argv execution remains supported by PTY.run(Array(String)).
       def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
         raise ArgumentError.new("PTY command must not be empty") if argv.empty?
         raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
-
+      
         @argv = argv.dup
         @shell = ENV["SHELL"]? || "/bin/sh"
         @name = "xterm-256color"
@@ -321,7 +321,7 @@ module PTY
         @stream_error = nil
         validate_dimensions(rows, columns)
       end
-
+      
       private def validate_dimensions(rows : Int32?, columns : Int32?) : Nil
         if rows.nil? != columns.nil?
           raise ArgumentError.new("PTY rows and columns must be provided together")
@@ -334,7 +334,7 @@ module PTY
         end
       end
     end
-
+  
     module Input
       def write(data : String) : Nil
         raise "PTY session has not been started" unless @started
@@ -378,7 +378,7 @@ module PTY
       def wait : Int32
         raise "PTY session has not been started" unless @started
         return @exit_code.not_nil! if @completed
-
+      
         code = wait_for_status
         wait_for_reader
         @exit_code = code
@@ -388,20 +388,20 @@ module PTY
       ensure
         cleanup_session if @completed
       end
-
+      
       def terminate : Int32
         return @exit_code.not_nil! if @completed
         raise "PTY session has not been started" unless @started
-
+      
         @terminated = true
         terminate_child_group(@pid.not_nil!)
         wait
       end
-
+      
       def close : Int32
         terminate
       end
-
+      
       private def wait_for_status : Int32
         pid = @pid.not_nil!
         loop do
@@ -410,7 +410,7 @@ module PTY
           return decode_wait_status(status) if result == pid
           return 143 if @terminated && result < 0
           return 127 if result < 0
-
+      
           unless @reader_finished
             select
             when error = @reader_done.not_nil!.receive
@@ -424,15 +424,15 @@ module PTY
           end
         end
       end
-
+      
       private def decode_wait_status(status : Int32) : Int32
         signal = status & 0x7f
         signal == 0 ? (status >> 8) & 0xff : 128 + signal
       end
-
+      
       private def wait_for_reader : Nil
         return if @reader_finished
-
+      
         select
         when error = @reader_done.not_nil!.receive
           @reader_finished = true
@@ -444,7 +444,7 @@ module PTY
           @stream_error ||= error
         end
       end
-
+      
       private def cleanup_session : Nil
         @master_io.try &.close
         @master_io = nil
@@ -455,7 +455,7 @@ module PTY
         File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
       end
     end
-
+  
     getter raw_string : String
     getter rows : Int32?
     getter columns : Int32?

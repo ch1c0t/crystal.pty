@@ -5,8 +5,9 @@ describe PTY::Session do
   # Resizing must update the actual terminal kernel state, not only Session's
   # metadata; terminal programs discover the new dimensions through TIOCSWINSZ.
   it "changes the dimensions of the existing PTY" do
-    session = PTY::Session.new(["/usr/bin/timeout", "--foreground", "5", "/bin/sh", "-c", "read proceed; stty size"], rows: 24, columns: 80)
-    session.start
+    session = PTY::Session.new(rows: 24, columns: 80)
+    session.start(["/usr/bin/timeout", "--foreground", "5", "/bin/sh", "-c", "read proceed; stty size"])
+
     session.resize(rows: 42, columns: 120)
     session.write("proceed\n")
 
