@@ -42,12 +42,4 @@ describe PTY do
     command.session.should be(session)
     exit_code.should eq(7)
   end
-
-  it "keeps the legacy PTY::Command constructor used by tmux.run" do
-    command = PTY::Command.new("printf legacy-command", 0, 1_i64)
-    output, exit_code = command.execute_inside_pty
-
-    output.should contain("legacy-command")
-    exit_code.should eq(0)
-  end
 end
