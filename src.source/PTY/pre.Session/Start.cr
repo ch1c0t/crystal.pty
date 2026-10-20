@@ -11,7 +11,5 @@ include StartSessionEngine
 
 include SpawnChild
 include MonitorParentStream
-
-include BeginBackgroundReader
 include UpdateKernelTerminalDimensions
 include PrepareEnvironmentVariables
