@@ -17,6 +17,7 @@ module PTY
     fun close(fd : Int32) : Int32
     fun ioctl(fd : Int32, request : UInt64, argp : Void*) : Int32
     fun tcgetpgrp(fd : Int32) : Int32
+    fun waitpid(pid : Int32, status : Int32*, options : Int32) : Int32
   end
 
   module Run
@@ -205,18 +206,14 @@ module PTY
               env.each { |key, value| ENV[key] = value }
             end
             Dir.cd(@cwd.not_nil!) if @cwd
+            File.write(@ready_path, "ready\\n")
 
-            ready = "printf 'ready\\n' > '#{@ready_path}.tmp' && mv '#{@ready_path}.tmp' '#{@ready_path}'; "
             if argv = @argv
-              command = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-              Process.exec("/bin/sh", ["-c", ready + command, "pty-session"] + argv)
+              Process.exec(argv.first, argv[1..])
             elsif command = @command
-              script = "#{ready}\"$1\" -i -c \"$2\"; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-              Process.exec("/bin/sh", ["-c", script, "pty-session", @shell, command])
+              Process.exec(@shell, ["-i", "-c", command])
             else
-              shell = @shell.gsub("'", "'\\''")
-              script = "#{ready}'#{shell}' -i; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-              Process.exec("/bin/sh", ["-c", script])
+              Process.exec(@shell, ["-i"])
             end
           rescue
             C._exit(127)
@@ -226,16 +223,6 @@ module PTY
       end
 
       module WaitForChild
-        private def read_status_file(status_path : String) : Int32?
-          return unless File.exists?(status_path)
-        
-          contents = File.read(status_path).strip
-          return if contents.empty?
-        
-          File.delete(status_path)
-          contents.to_i?
-        end
-        
         private def terminate_child_group(pid : Int32) : Nil
           groups = [pid] of Int32
           if fd = @master_fd
@@ -249,7 +236,7 @@ module PTY
           C.kill(pid, 9)
         end
       end
-    
+
       include AllocatePTY
       include SpawnChild
       include ReadOutput
@@ -391,7 +378,7 @@ module PTY
       def wait : Int32
         raise "PTY session has not been started" unless @started
         return @exit_code.not_nil! if @completed
-      
+
         code = wait_for_status
         wait_for_reader
         @exit_code = code
@@ -401,47 +388,51 @@ module PTY
       ensure
         cleanup_session if @completed
       end
-      
+
       def terminate : Int32
         return @exit_code.not_nil! if @completed
         raise "PTY session has not been started" unless @started
-      
+
         @terminated = true
         terminate_child_group(@pid.not_nil!)
         wait
       end
-      
+
       def close : Int32
         terminate
       end
-      
+
       private def wait_for_status : Int32
+        pid = @pid.not_nil!
         loop do
-          if code = read_status_file(@status_path)
-            return code
-          end
-      
-          if @reader_finished
-            return 143 if @terminated || @stream_error
-          else
+          status = 0
+          result = C.waitpid(pid, pointerof(status), 1)
+          return decode_wait_status(status) if result == pid
+          return 143 if @terminated && result < 0
+          return 127 if result < 0
+
+          unless @reader_finished
             select
             when error = @reader_done.not_nil!.receive
               @reader_finished = true
               @stream_error ||= error
-              if @stream_error
-                terminate_child_group(@pid.not_nil!)
-                return read_status_file(@status_path) || 143
-              end
+              terminate_child_group(pid) if @stream_error
             when timeout(10.milliseconds)
             end
+          else
+            sleep(10.milliseconds)
           end
-          sleep(10.milliseconds) if @reader_finished && !@terminated && !@stream_error
         end
       end
-      
+
+      private def decode_wait_status(status : Int32) : Int32
+        signal = status & 0x7f
+        signal == 0 ? (status >> 8) & 0xff : 128 + signal
+      end
+
       private def wait_for_reader : Nil
         return if @reader_finished
-      
+
         select
         when error = @reader_done.not_nil!.receive
           @reader_finished = true
@@ -453,7 +444,7 @@ module PTY
           @stream_error ||= error
         end
       end
-      
+
       private def cleanup_session : Nil
         @master_io.try &.close
         @master_io = nil
@@ -464,7 +455,7 @@ module PTY
         File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
       end
     end
-  
+
     getter raw_string : String
     getter rows : Int32?
     getter columns : Int32?
