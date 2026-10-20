@@ -7,10 +7,10 @@ require "./session/stream_spec"
 require "./session/terminate_spec"
 
 describe PTY do
-  it "offers the one-shot argv API" do
-    output, exit_code = PTY.run(["/bin/sh", "-c", "printf direct-argv"])
+  it "runs a string command with terminal dimensions" do
+    output, exit_code = PTY.run("printf direct-string", rows: 30, columns: 100)
 
-    output.should contain("direct-argv")
+    output.should contain("direct-string")
     exit_code.should eq(0)
   end
 
