@@ -6,6 +6,7 @@ getter pid : Int32?
 getter exit_code : Int32?
 
 @argv : Array(String)?
+@interactive_shell : Bool
 @master_fd : Int32?
 @master_io : IO::FileDescriptor?
 @reader_done : Channel(Exception?)?
