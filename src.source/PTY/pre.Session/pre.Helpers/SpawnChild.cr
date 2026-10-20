@@ -8,18 +8,14 @@ private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
       env.each { |key, value| ENV[key] = value }
     end
     Dir.cd(@cwd.not_nil!) if @cwd
+    File.write(@ready_path, "ready\\n")
 
-    ready = "printf 'ready\\n' > '#{@ready_path}.tmp' && mv '#{@ready_path}.tmp' '#{@ready_path}'; "
     if argv = @argv
-      command = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-      Process.exec("/bin/sh", ["-c", ready + command, "pty-session"] + argv)
+      Process.exec(argv.first, argv[1..])
     elsif command = @command
-      script = "#{ready}\"$1\" -i -c \"$2\"; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-      Process.exec("/bin/sh", ["-c", script, "pty-session", @shell, command])
+      Process.exec(@shell, ["-i", "-c", command])
     else
-      shell = @shell.gsub("'", "'\\''")
-      script = "#{ready}'#{shell}' -i; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-      Process.exec("/bin/sh", ["-c", script])
+      Process.exec(@shell, ["-i"])
     end
   rescue
     C._exit(127)
