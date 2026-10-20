@@ -26,27 +26,31 @@ def close : Int32
 end
 
 private def wait_for_status : Int32
+  pid = @pid.not_nil!
   loop do
-    if code = read_status_file(@status_path)
-      return code
-    end
+    status = 0
+    result = C.waitpid(pid, pointerof(status), 1)
+    return decode_wait_status(status) if result == pid
+    return 143 if @terminated && result < 0
+    return 127 if result < 0
 
-    if @reader_finished
-      return 143 if @terminated || @stream_error
-    else
+    unless @reader_finished
       select
       when error = @reader_done.not_nil!.receive
         @reader_finished = true
         @stream_error ||= error
-        if @stream_error
-          terminate_child_group(@pid.not_nil!)
-          return read_status_file(@status_path) || 143
-        end
+        terminate_child_group(pid) if @stream_error
       when timeout(10.milliseconds)
       end
+    else
+      sleep(10.milliseconds)
     end
-    sleep(10.milliseconds) if @reader_finished && !@terminated && !@stream_error
   end
+end
+
+private def decode_wait_status(status : Int32) : Int32
+  signal = status & 0x7f
+  signal == 0 ? (status >> 8) & 0xff : 128 + signal
 end
 
 private def wait_for_reader : Nil
