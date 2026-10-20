@@ -22,19 +22,19 @@ module PTY
     # Runs a one-shot shell command in a pseudo-terminal. The transcript combines stdout
     # and stderr because both are attached to the same terminal.
     def run(command : String, *, rows : Int32? = nil, columns : Int32? = nil, &stream_callback : String -> Nil) : Tuple(String, Int32)
-      session = Session.new(command, rows: rows, columns: columns)
+      session = Session.new(rows: rows, columns: columns)
       Command.new(command, session).execute_inside_pty(&stream_callback)
     end
     
     def run(command : String, *, rows : Int32? = nil, columns : Int32? = nil) : Tuple(String, Int32)
-      session = Session.new(command, rows: rows, columns: columns)
+      session = Session.new(rows: rows, columns: columns)
       Command.new(command, session).execute_inside_pty
     end
 
     # Direct argv execution remains available through PTY.run without expanding
     # PTY::Command beyond its shell-string API.
     def run(command : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, &stream_callback : String -> Nil) : Tuple(String, Int32)
-      session = Session.new(command, rows: rows, columns: columns).start(&stream_callback)
+      session = Session.new(rows: rows, columns: columns).start(&stream_callback)
       exit_code = session.wait
       {session.output, exit_code}
     end
@@ -51,11 +51,11 @@ module PTY
       # Compatibility constructor used by tmux.run. The index and run_id remain part
       # of the public API; each execution delegates to a Session.
       def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
-        @session = Session.new(@raw_string)
+        @session = Session.new
       end
       
       def initialize(@raw_string : String)
-        @session = Session.new(@raw_string)
+        @session = Session.new
       end
 
       def initialize(@raw_string : String, @session : Session)
@@ -83,24 +83,23 @@ module PTY
       def start(&stream_callback : String -> Nil) : self
         start_with_callback(stream_callback)
       end
-      
+
       def start : self
         start_with_callback(->(chunk : String) { nil })
       end
-      
-      # Starts a one-shot shell command while retaining the Session transcript and
-      # streaming callback APIs used by PTY::Command.
+
+      # Runs a command by sending it to the same interactive shell used by start.
       def execute(raw_string : String, stream_callback : String -> Nil) : self
         raise "PTY session has already been started" if @started
-      
         @raw_string = raw_string
-        @argv = nil
         start(&stream_callback)
+        write("#{raw_string}\nexit\n")
+        self
       end
-      
+
       private def start_with_callback(callback : Proc(String, Nil)) : self
         raise "PTY session has already been started" if @started
-      
+
         master_fd, slave_fd = allocate_pty(@rows, @columns)
         child_pid = C.fork
         if child_pid < 0
@@ -110,7 +109,7 @@ module PTY
         elsif child_pid == 0
           spawn_child(master_fd, slave_fd)
         end
-      
+
         C.close(slave_fd)
         @pid = child_pid
         @master_fd = master_fd
@@ -121,7 +120,7 @@ module PTY
         wait_until_ready
         self
       end
-      
+
       private def wait_until_ready : Nil
         deadline = Time.instant + 2.seconds
         until File.exists?(@ready_path) || File.exists?(@status_path)
@@ -133,13 +132,13 @@ module PTY
           end
           sleep(10.milliseconds)
         end
-      
+
         File.delete(@ready_path) if File.exists?(@ready_path)
       ensure
         File.delete("#{@ready_path}.tmp") if File.exists?("#{@ready_path}.tmp")
       end
     end
-  
+
     module Helpers
       module AllocatePTY
         private def allocate_pty(rows : Int32?, columns : Int32?) : Tuple(Int32, Int32)
@@ -199,20 +198,21 @@ module PTY
         private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
           C.close(master_fd)
           C._exit(127) if C.login_tty(slave_fd) == -1
-          ENV["TERM"] ||= "xterm-256color"
-        
+
           begin
+            ENV["TERM"] = @name
+            if env = @env
+              env.each { |key, value| ENV[key] = value }
+            end
+            Dir.cd(@cwd.not_nil!) if @cwd
+
             ready = "printf 'ready\\n' > '#{@ready_path}.tmp' && mv '#{@ready_path}.tmp' '#{@ready_path}'; "
             if argv = @argv
               command = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
               Process.exec("/bin/sh", ["-c", ready + command, "pty-session"] + argv)
-            elsif @interactive_shell
-              shell = (ENV["SHELL"]? || "/bin/sh").gsub("'", "'\\''")
-              script = "#{ready}'#{shell}' -i; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
-              Process.exec("/bin/sh", ["-c", script])
             else
-              command = @raw_string.empty? ? ":" : @raw_string
-              script = "#{ready}( #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
+              shell = @shell.gsub("'", "'\\''")
+              script = "#{ready}'#{shell}' -i; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
               Process.exec("/bin/sh", ["-c", script])
             end
           rescue
@@ -221,7 +221,7 @@ module PTY
           C._exit(127)
         end
       end
-    
+
       module WaitForChild
         private def read_status_file(status_path : String) : Int32?
           return unless File.exists?(status_path)
@@ -251,41 +251,48 @@ module PTY
     end
   
     module Initialize
-      def initialize(*, rows : Int32? = nil, columns : Int32? = nil)
-        initialize("", rows: rows, columns: columns)
-        @interactive_shell = true
-      end
-      
-      def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
+      def initialize(
+        shell : String = (ENV["SHELL"]? || "/bin/sh"),
+        *,
+        name : String = "xterm-256color",
+        rows : Int32? = nil,
+        columns : Int32? = nil,
+        cwd : String? = nil,
+        env : Hash(String, String)? = nil
+      )
+        raise ArgumentError.new("PTY shell must not be empty") if shell.empty?
+        @shell = shell
+        @name = name
+        @cwd = cwd
+        @env = env
+        @raw_string = ""
         @argv = nil
-        @interactive_shell = false
+        @command = nil
+        @interactive_shell = true
         @rows = rows
         @columns = columns
-        @status_path = "/tmp/#{UUID.random}.pty_status"
-        @ready_path = "#{@status_path}.ready"
-        @pid = nil
-        @exit_code = nil
-        @master_fd = nil
-        @master_io = nil
-        @reader_done = nil
-        @output_buffer = IO::Memory.new
-        @started = false
-        @completed = false
-        @terminated = false
-        @reader_finished = false
-        @stream_error = nil
-        validate_dimensions(rows, columns)
+        initialize_state(rows, columns)
       end
-      
+
+      # Direct argv execution remains supported by PTY.run(Array(String)).
       def initialize(argv : Array(String), *, rows : Int32? = nil, columns : Int32? = nil)
         raise ArgumentError.new("PTY command must not be empty") if argv.empty?
         raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
-      
+
         @argv = argv.dup
+        @shell = ENV["SHELL"]? || "/bin/sh"
+        @name = "xterm-256color"
+        @cwd = nil
+        @env = nil
+        @command = nil
         @interactive_shell = false
         @raw_string = argv.join(" ")
         @rows = rows
         @columns = columns
+        initialize_state(rows, columns)
+      end
+
+      private def initialize_state(rows : Int32?, columns : Int32?) : Nil
         @status_path = "/tmp/#{UUID.random}.pty_status"
         @ready_path = "#{@status_path}.ready"
         @pid = nil
@@ -301,7 +308,7 @@ module PTY
         @stream_error = nil
         validate_dimensions(rows, columns)
       end
-      
+
       private def validate_dimensions(rows : Int32?, columns : Int32?) : Nil
         if rows.nil? != columns.nil?
           raise ArgumentError.new("PTY rows and columns must be provided together")
@@ -314,7 +321,7 @@ module PTY
         end
       end
     end
-  
+
     module Input
       def write(data : String) : Nil
         raise "PTY session has not been started" unless @started
@@ -440,6 +447,11 @@ module PTY
     getter exit_code : Int32?
     
     @argv : Array(String)?
+    @shell : String
+    @name : String
+    @cwd : String?
+    @env : Hash(String, String)?
+    @command : String?
     @interactive_shell : Bool
     @master_fd : Int32?
     @master_io : IO::FileDescriptor?
