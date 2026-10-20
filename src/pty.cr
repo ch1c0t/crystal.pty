@@ -206,6 +206,10 @@ module PTY
             if argv = @argv
               command = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
               Process.exec("/bin/sh", ["-c", ready + command, "pty-session"] + argv)
+            elsif @interactive_shell
+              shell = (ENV["SHELL"]? || "/bin/sh").gsub("'", "'\\''")
+              script = "#{ready}'#{shell}' -i; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
+              Process.exec("/bin/sh", ["-c", script])
             else
               command = @raw_string.empty? ? ":" : @raw_string
               script = "#{ready}( #{command} ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
@@ -247,12 +251,14 @@ module PTY
     end
   
     module Initialize
-      def initialize
-        initialize("", rows: nil, columns: nil)
+      def initialize(*, rows : Int32? = nil, columns : Int32? = nil)
+        initialize("", rows: rows, columns: columns)
+        @interactive_shell = true
       end
       
       def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
         @argv = nil
+        @interactive_shell = false
         @rows = rows
         @columns = columns
         @status_path = "/tmp/#{UUID.random}.pty_status"
@@ -276,6 +282,7 @@ module PTY
         raise ArgumentError.new("PTY executable must not be empty") if argv.first.empty?
       
         @argv = argv.dup
+        @interactive_shell = false
         @raw_string = argv.join(" ")
         @rows = rows
         @columns = columns
@@ -433,6 +440,7 @@ module PTY
     getter exit_code : Int32?
     
     @argv : Array(String)?
+    @interactive_shell : Bool
     @master_fd : Int32?
     @master_io : IO::FileDescriptor?
     @reader_done : Channel(Exception?)?
