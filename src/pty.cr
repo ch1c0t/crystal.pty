@@ -19,21 +19,13 @@ module PTY
   end
 
   module Run
-    # Runs a one-shot command in a pseudo-terminal. The transcript combines stdout
+    # Runs a one-shot shell command in a pseudo-terminal. The transcript combines stdout
     # and stderr because both are attached to the same terminal.
     def run(command : String, *, rows : Int32? = nil, columns : Int32? = nil, &stream_callback : String -> Nil) : Tuple(String, Int32)
       Command.new(command, rows: rows, columns: columns).execute_inside_pty(&stream_callback)
     end
     
-    def run(command : Array(String), *, rows : Int32? = nil, columns : Int32? = nil, &stream_callback : String -> Nil) : Tuple(String, Int32)
-      Command.new(command, rows: rows, columns: columns).execute_inside_pty(&stream_callback)
-    end
-    
     def run(command : String, *, rows : Int32? = nil, columns : Int32? = nil) : Tuple(String, Int32)
-      Command.new(command, rows: rows, columns: columns).execute_inside_pty
-    end
-    
-    def run(command : Array(String), *, rows : Int32? = nil, columns : Int32? = nil) : Tuple(String, Int32)
       Command.new(command, rows: rows, columns: columns).execute_inside_pty
     end
   end
@@ -45,10 +37,11 @@ module PTY
       # Compatibility constructor used by tmux.run. The index and run_id remain part
       # of the public API; each execution delegates to a Session.
       def initialize(@raw_string : String, _index : Int32, _run_id : Int64)
-        @session = Session.new
+        @session = Session.new(@raw_string)
       end
       
-      def initialize(@raw_string : String, @session : Session = Session.new)
+      def initialize(@raw_string : String, *, rows : Int32? = nil, columns : Int32? = nil)
+        @session = Session.new(@raw_string, rows: rows, columns: columns)
       end
     end
   
