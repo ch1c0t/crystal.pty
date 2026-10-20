@@ -184,8 +184,11 @@ module PTY
                 begin
                   stream_callback.try(&.call(chunk))
                 rescue ex : Exception
-                  @exception = ex # Save it to re-raise in the main thread
-                  break           # Stop reading immediately
+                  @exception = ex
+                  if process = @process
+                    Process.signal(Signal::KILL, process.pid) rescue nil
+                  end
+                  break
                 end
         
                 # Use non-blocking channel send to avoid freezing the reader fiber
@@ -340,11 +343,9 @@ module PTY
           # Wait for the OS process to terminate first
           status = process.wait
       
-          # Now that the process is dead, close the master stream to break the reader fiber loop
-          cleanup_streams
-      
-          # Wait for the background stream reader fiber to process all incoming data
+          # Let the reader drain buffered PTY output through EOF before closing the master.
           @reader_done.receive?
+          cleanup_streams
       
           # If the background stream fiber caught a callback error, bubble it up now
           if ex = @exception
