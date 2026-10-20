@@ -17,8 +17,11 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
         begin
           stream_callback.try(&.call(chunk))
         rescue ex : Exception
-          @exception = ex # Save it to re-raise in the main thread
-          break           # Stop reading immediately
+          @exception = ex
+          if process = @process
+            Process.signal(Signal::KILL, process.pid) rescue nil
+          end
+          break
         end
 
         # Use non-blocking channel send to avoid freezing the reader fiber
