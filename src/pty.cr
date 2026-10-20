@@ -92,9 +92,8 @@ module PTY
       def execute(raw_string : String, stream_callback : String -> Nil) : self
         raise "PTY session has already been started" if @started
         @raw_string = raw_string
+        @command = raw_string
         start(&stream_callback)
-        write("#{raw_string}\nexit\n")
-        self
       end
 
       private def start_with_callback(callback : Proc(String, Nil)) : self
@@ -210,6 +209,9 @@ module PTY
             if argv = @argv
               command = "( \"$@\" ); command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
               Process.exec("/bin/sh", ["-c", ready + command, "pty-session"] + argv)
+            elsif command = @command
+              script = "#{ready}\"$1\" -i -c \"$2\"; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
+              Process.exec("/bin/sh", ["-c", script, "pty-session", @shell, command])
             else
               shell = @shell.gsub("'", "'\\''")
               script = "#{ready}'#{shell}' -i; command_status=$?; printf '%s\\n' \"$command_status\" > '#{@status_path}.tmp' && mv '#{@status_path}.tmp' '#{@status_path}'; exit \"$command_status\""
