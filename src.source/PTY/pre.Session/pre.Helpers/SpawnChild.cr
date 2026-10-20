@@ -13,7 +13,7 @@ private def spawn_child(master_fd : Int32, slave_fd : Int32) : NoReturn
     if argv = @argv
       Process.exec(argv.first, argv[1..])
     elsif command = @command
-      Process.exec(@shell, ["-i", "-c", command])
+      Process.exec(@shell, ["-c", command])
     else
       Process.exec(@shell, ["-i"])
     end
