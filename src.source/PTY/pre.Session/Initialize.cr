@@ -1,5 +1,16 @@
 def initialize(
-  shell : String = (ENV["SHELL"]? || "/bin/sh"),
+  *,
+  name : String = "xterm-256color",
+  rows : Int32? = nil,
+  columns : Int32? = nil,
+  cwd : String? = nil,
+  env : Hash(String, String)? = nil
+)
+  initialize(ENV["SHELL"]? || "/bin/sh", name: name, rows: rows, columns: columns, cwd: cwd, env: env)
+end
+
+def initialize(
+  shell : String,
   *,
   name : String = "xterm-256color",
   rows : Int32? = nil,
