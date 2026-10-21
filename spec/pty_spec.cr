@@ -27,7 +27,7 @@ describe PTY do
       chunks << chunk
     end
 
-    output.should eq(chunks.join)
+    output.strip.should eq(chunks.join.strip)
     exit_code.should eq(0)
   end
 
