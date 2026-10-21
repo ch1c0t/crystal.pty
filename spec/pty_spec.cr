@@ -34,7 +34,7 @@ describe PTY do
   it "accepts an existing Session as the second PTY::Command argument" do
     chunks = [] of String
     session = PTY::Session.new
-    command = PTY::Command.new("printf 'command-api'; exit 7", session)
+    command = PTY::Command.new("printf 'command-api'; exit 7", session.start)
     output, exit_code = command.execute_inside_pty { |chunk| chunks << chunk }
 
     output.should contain("command-api")

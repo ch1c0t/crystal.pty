@@ -33,12 +33,12 @@ module PTY
     def run(command : String, *, rows : Int32? = nil, columns : Int32? = nil, &stream_callback : String -> Nil) : Tuple(String, Int32)
       # Resolve nil values safely to match the strict Int32 constructor requirements
       session = Session.new(rows: rows || 24, columns: columns || 80)
-      Command.new(command, session).execute_inside_pty(&stream_callback)
+      Command.new(command, session.start).execute_inside_pty(&stream_callback)
     end
     
     def run(command : String, *, rows : Int32? = nil, columns : Int32? = nil) : Tuple(String, Int32)
       session = Session.new(rows: rows || 24, columns: columns || 80)
-      Command.new(command, session).execute_inside_pty
+      Command.new(command, session.start).execute_inside_pty
     end
   end
 
@@ -46,11 +46,20 @@ module PTY
 
   class Command
     module Initialize
+      @session : PTY::Session
+      @owns_session : Bool
+      
+      # Constructor A: Command creates its own session instance
       def initialize(@raw_string : String)
-        @session = Session.new
+        session = Session.new
+        session.start # Fire up the interactive subshell thread pool
+        @session = session
+        @owns_session = true # Mark that this instance handles its own cleanup
       end
       
-      def initialize(@raw_string : String, @session : Session)
+      # Constructor B: Command adopts a pre-existing session context shared by others
+      def initialize(@raw_string : String, @session : PTY::Session)
+        @owns_session = false # Do not kill this session; someone else is managing it
       end
     end
   
@@ -59,13 +68,22 @@ module PTY
     
     include Initialize
     
-    def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(String, Int32)
-      @session.execute(@raw_string, stream_callback)
-      exit_code = @session.wait
-      {@session.output, exit_code}
+    alias Output = String
+    alias ExitCode = Int32
+    
+    def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(Output, ExitCode)
+      # 1. Execute the string script natively over the interactive wire pipeline
+      result = @session.run(@raw_string, &stream_callback)
+      
+      # 2. Only terminate the session if this specific command created it natively
+      if @owns_session
+        @session.terminate
+      end
+    
+      {result.output, result.status}
     end
     
-    def execute_inside_pty : Tuple(String, Int32)
+    def execute_inside_pty : Tuple(Output, ExitCode)
       execute_inside_pty { |_chunk| }
     end
   end
@@ -144,10 +162,17 @@ module PTY
           @active_run_callback = nil
         end
       
+        # Extract the numeric status from sentinel token
         command_transcript = @output[initial_snapshot_size..-1]
         exit_status = 0
         if match = command_transcript.match(/#{sentinel}__(\d+)__/)
           exit_status = match[1].to_i
+        else
+          # FIXED STATUS RESOLUTION: Query the exit code safely only if 
+          # the background thread confirmed that the shell process has died.
+          if !@reader_active && (proc = @process)
+            exit_status = proc.wait.exit_code rescue 0
+          end
         end
       
         clean_output = captured_text
@@ -392,6 +417,12 @@ module PTY
               p "#{ex} in #wait_for, in ex"
               @exception = nil
               raise ex
+            end
+      
+            # FIXED CONCURRENCY CHECK: If the background reader fiber has completely 
+            # shut down, the pipeline is closed. Break immediately to prevent hangs!
+            unless @reader_active
+              break
             end
       
             # 2. Release the mutex lock briefly to let the background reader fiber 

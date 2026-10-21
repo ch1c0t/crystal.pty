@@ -22,10 +22,17 @@ def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionR
     @active_run_callback = nil
   end
 
+  # Extract the numeric status from sentinel token
   command_transcript = @output[initial_snapshot_size..-1]
   exit_status = 0
   if match = command_transcript.match(/#{sentinel}__(\d+)__/)
     exit_status = match[1].to_i
+  else
+    # FIXED STATUS RESOLUTION: Query the exit code safely only if 
+    # the background thread confirmed that the shell process has died.
+    if !@reader_active && (proc = @process)
+      exit_status = proc.wait.exit_code rescue 0
+    end
   end
 
   clean_output = captured_text

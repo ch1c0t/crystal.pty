@@ -20,6 +20,12 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds)
         raise ex
       end
 
+      # FIXED CONCURRENCY CHECK: If the background reader fiber has completely 
+      # shut down, the pipeline is closed. Break immediately to prevent hangs!
+      unless @reader_active
+        break
+      end
+
       # 2. Release the mutex lock briefly to let the background reader fiber 
       # write text chunks, and sleep for a tiny slice to yield priority.
       @mutex.unlock
