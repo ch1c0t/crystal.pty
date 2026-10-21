@@ -28,6 +28,23 @@ describe PTY::Session do
     session.terminate
   end
 
+  it "preserves shell state and reports each command's exit status" do
+    session = PTY::Session.new
+    session.start
+
+    output, status = session.run("value=persistent")
+    status.should eq(0)
+
+    output, status = session.run("false")
+    status.should eq(1)
+
+    output, status = session.run("printf 'value:%s\\n' \"$value\"")
+    output.should contain("value:persistent")
+    status.should eq(0)
+  ensure
+    session.terminate
+  end
+
   it "starts the shell in the requested working directory" do
     session = PTY::Session.new("/bin/sh", cwd: "/tmp")
     session.start
