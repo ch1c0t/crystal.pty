@@ -2,35 +2,36 @@ require "spec"
 require "../../src/pty"
 
 describe PTY::Session do
-  # Long-lived sessions need incremental output as well as a final transcript;
-  # this guards against losing or reordering chunks while the reader runs.
-  it "streams output and retains the same complete transcript" do
+  it "streams command output and returns the same command transcript" do
     chunks = [] of String
     session = PTY::Session.new
+    session.start
 
-    args = ["/usr/bin/timeout", "--foreground", "5", "/bin/sh", "-c", "printf 'stream-begin'; read value; printf 'stream-end:%s\\n' \"$value\""]
-    session.start(args) { |chunk| chunks << chunk }
-    session.write("payload\n")
+    output, exit_code = session.run("printf 'stream-begin'; printf 'stream-end\\n'") do |chunk|
+      chunks << chunk
+    end
 
-    exit_code = session.wait
-    session.output.should contain("stream-begin")
-    session.output.should contain("stream-end:payload")
-    chunks.join.should eq(session.output)
+    output.should contain("stream-begin")
+    output.should contain("stream-end")
+    chunks.join.should eq(output)
     exit_code.should eq(0)
+  ensure
+    session.try(&.terminate)
   end
 
-  it "raises callback errors promptly even when the child produces continuous output" do
+  it "raises callback errors promptly when a command produces continuous output" do
     session = PTY::Session.new
+    session.start
     started_at = Time.instant
 
     expect_raises(Exception, "callback exploded") do
-      session.start(["/usr/bin/timeout", "--foreground", "--signal=KILL", "2",
-                     "/usr/bin/yes", "x"]) do |_chunk|
+      session.run("timeout --foreground --signal=KILL 2 /usr/bin/yes x") do |_chunk|
         raise "callback exploded"
       end
-      session.wait
     end
 
     (Time.instant - started_at).should be < 1.second
+  ensure
+    session.try(&.terminate)
   end
 end
