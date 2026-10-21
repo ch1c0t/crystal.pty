@@ -14,4 +14,5 @@ when 1
   end
 end
 
-puts "crystal.pty is made with Crystal."
+require "../pty"
+p PTY::Session
