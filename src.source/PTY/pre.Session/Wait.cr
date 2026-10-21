@@ -8,7 +8,7 @@ def wait : Int32
     # Block efficiently until the reader loop finishes flushing remaining buffers
     @mutex.synchronize do
       while @reader_active
-        @cond.wait(@mutex)
+        @cond.wait
       end
 
       # Propagate asynchronous callback errors safely if caught

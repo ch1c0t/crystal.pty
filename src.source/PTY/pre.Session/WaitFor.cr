@@ -15,7 +15,7 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds)
 
       # Blocks cleanly; instantly releases the lock so the reader fiber can write text,
       # then re-acquires the lock automatically the millisecond it gets signaled.
-      @cond.wait(@mutex, remaining)
+      @cond.wait(remaining)
     end
   end
 end
