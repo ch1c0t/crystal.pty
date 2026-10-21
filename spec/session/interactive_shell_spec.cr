@@ -14,7 +14,7 @@ describe PTY::Session do
     output.should contain("interactive-session-ok")
     status.should eq(0)
   ensure
-    session.try(&.terminate)
+    session.terminate
   end
 
   it "accepts a shell name and configures the terminal environment" do
@@ -25,7 +25,7 @@ describe PTY::Session do
     output.should contain("xterm-color configured")
     status.should eq(0)
   ensure
-    session.try(&.terminate)
+    session.terminate
   end
 
   it "starts the shell in the requested working directory" do
@@ -36,6 +36,6 @@ describe PTY::Session do
     output.should contain("/tmp")
     status.should eq(0)
   ensure
-    session.try(&.terminate)
+    session.terminate
   end
 end
