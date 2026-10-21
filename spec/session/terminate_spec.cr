@@ -5,8 +5,11 @@ describe PTY::Session do
   # Explicit termination must close a running process group and unblock the
   # PTY reader, rather than leaving fibers or descriptors behind.
   it "terminates a running process and waits for cleanup" do
-    session = PTY::Session.new
-    session.start(["/bin/sh", "-c", "sleep 30"])
+    # Configure the long-running sleep command onto the shell option during initialization
+    session = PTY::Session.new(shell: "/bin/sh -c 'sleep 30'")
+    
+    # Call the clean, zero-argument start method
+    session.start
 
     started_at = Time.instant
     session.terminate

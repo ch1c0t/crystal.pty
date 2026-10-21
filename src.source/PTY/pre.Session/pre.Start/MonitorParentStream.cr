@@ -1,4 +1,4 @@
-private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_callback : (String ->)?)
+private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32)
   IO::FileDescriptor.new(slave_fd, close_on_finalize: true).close
 
   master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
@@ -9,39 +9,45 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
 
   spawn do
     io_buffer = Bytes.new(65536)
-
-    # FIX WORKAROUND FOR CRYSTAL BUG #15011 / #17682:
-    # Explicitly declare ALL variables here to force them into a safe local scope.
-    # This prevents the compiler from throwing a KeyError during semantic mapping.
+    
+    # FIX WORKAROUND FOR CRYSTAL BUG #15011:
+    # Explicitly declare ALL loop-accessed variables here to anchor their scope
+    # before entering the nested while/begin/rescue block structure.
     bytes_read = 0
     chunk = ""
     proc = @process
+    active_cmd_hook = @active_run_callback
 
     while !master_io.closed?
       begin
         bytes_read = master_io.read(io_buffer)
-        if bytes_read == 0
-          break
-        end
+        break if bytes_read == 0
 
         chunk = String.new(io_buffer[0, bytes_read])
-
+        
         @mutex.synchronize do
           @output += chunk
+          
+          # Fetch the callback pointer safely using our pre-declared variable frame
+          active_cmd_hook = @active_run_callback
+          if active_cmd_hook
+            begin
+              active_cmd_hook.call(chunk)
+            rescue ex : Exception
+              # FIX WORKAROUND FOR BUG #15011:
+              # Use a dedicated method call to force proper instance-level 
+              # assignment, breaking out of the shadowed compiler loop bug.
+              p "#{ex} in #monitor_parent_stream"
+              set_exception(ex)
 
-          begin
-            stream_callback.try(&.call(chunk))
-          rescue ex : Exception
-            @exception = ex
+              master_io.close rescue nil
 
-            # Re-fetch or use the pre-declared variable safely
-            proc = @process
-            if proc
-              Process.signal(Signal::KILL, proc.pid) rescue nil
+              proc = @process
+              Process.signal(Signal::KILL, proc.pid) if proc rescue nil
+              @reader_active = false
+              @cond.broadcast
+              break
             end
-            @reader_active = false
-            @cond.broadcast
-            break
           end
 
           @cond.broadcast 
@@ -61,4 +67,9 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
       @cond.broadcast
     end
   end
+end
+
+private def set_exception(ex : Exception)
+  p "#{ex} in #set_exception"
+  @exception = ex
 end

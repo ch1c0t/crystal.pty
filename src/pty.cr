@@ -19,6 +19,14 @@ module PTY
     fun ioctl(fd : Int32, request : UInt64, argp : Void*) : Int32
   end
 
+  class ExecutionResult
+    getter output : String
+    getter status : Int32
+    
+    def initialize(@output : String, @status : Int32)
+    end
+  end
+
   module Run
     # Runs a one-shot shell command in a pseudo-terminal. The transcript combines stdout
     # and stderr because both are attached to the same terminal.
@@ -64,29 +72,13 @@ module PTY
 
   class Session
     module Execute
-      # Core interface adapter required by PTY::Command
+      # Backward compatibility adapter for one-shot block commands (Command class)
       def execute(command_string : String, stream_callback : (String -> Nil)?)
-        # 1. Clear any old data if reusing the session instance
-        @output = ""
-      
-        # 2. Start the interactive process context using our robust fork pipeline.
-        # To run a raw shell string command natively inside an interactive subshell,
-        # we forward it to the default shell binary using the standard -c execution flag.
-        start_args = [@shell, "-c", command_string]
-      
         if callback = stream_callback
-          # Wrap the callback to bridge String -> Nil type compatibility safely
-          start(start_args) do |chunk|
-            callback.call(chunk)
-          end
+          run(command_string) { |chunk| callback.call(chunk) }
         else
-          start(start_args)
+          run(command_string)
         end
-      end
-      
-      # Overload matching block-less execution requests
-      def execute(command_string : String)
-        execute(command_string, nil)
       end
     end
   
@@ -118,17 +110,7 @@ module PTY
       end
     end
   
-    module Mutators
-      # Feeds text commands natively to the child process's STDIN wire
-      def write(command : String)
-        if io = @master_io
-          io.write(command.to_slice)
-          io.flush
-        else
-          raise "PTY pipeline unavailable: call #start first."
-        end
-      end
-      
+    module Resize
       # Resizes the ongoing active subshell terminal window on-the-fly
       def resize(rows : Int32, columns : Int32)
         @rows = rows
@@ -137,9 +119,62 @@ module PTY
       end
     end
   
+    module Run
+      # Streams execution chunks interactively in real time down an open session pipeline
+      def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionResult
+        captured_text = ""
+        initial_snapshot_size = @output.bytesize
+        sentinel = "CMD_MARK_#{Random.rand(100000..999999)}"
+      
+        @mutex.synchronize do
+          @active_run_callback = ->(chunk : String) {
+            unless chunk.includes?(sentinel)
+              captured_text += chunk
+              stream_callback.call(chunk)
+            end
+          }
+        end
+      
+        write("#{command_string}\n")
+        write("echo #{sentinel}__$?__\n")
+      
+        wait_for(sentinel)
+      
+        @mutex.synchronize do
+          @active_run_callback = nil
+        end
+      
+        command_transcript = @output[initial_snapshot_size..-1]
+        exit_status = 0
+        if match = command_transcript.match(/#{sentinel}__(\d+)__/)
+          exit_status = match[1].to_i
+        end
+      
+        clean_output = captured_text
+          .gsub(/#{command_string}\r?\n/, "")
+          .gsub(/echo #{sentinel}__\$\?__\r?\n/, "")
+          .strip
+      
+        PTY::ExecutionResult.new(output: clean_output, status: exit_status)
+      end
+      
+      def run(command_string : String) : PTY::ExecutionResult
+        run(command_string) { |_chunk| }
+      end
+    end
+  
     module Start
+      module AllocatePTY
+        private def allocate_pty : Tuple(Int32, Int32)
+          if PTY::C.openpty(out master_fd, out slave_fd, nil, nil, nil) == -1
+            raise "Error: OS failed to allocate high-precision PTY descriptors."
+          end
+          {master_fd, slave_fd}
+        end
+      end
+    
       module MonitorParentStream
-        private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_callback : (String ->)?)
+        private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32)
           IO::FileDescriptor.new(slave_fd, close_on_finalize: true).close
         
           master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
@@ -150,39 +185,45 @@ module PTY
         
           spawn do
             io_buffer = Bytes.new(65536)
-        
-            # FIX WORKAROUND FOR CRYSTAL BUG #15011 / #17682:
-            # Explicitly declare ALL variables here to force them into a safe local scope.
-            # This prevents the compiler from throwing a KeyError during semantic mapping.
+            
+            # FIX WORKAROUND FOR CRYSTAL BUG #15011:
+            # Explicitly declare ALL loop-accessed variables here to anchor their scope
+            # before entering the nested while/begin/rescue block structure.
             bytes_read = 0
             chunk = ""
             proc = @process
+            active_cmd_hook = @active_run_callback
         
             while !master_io.closed?
               begin
                 bytes_read = master_io.read(io_buffer)
-                if bytes_read == 0
-                  break
-                end
+                break if bytes_read == 0
         
                 chunk = String.new(io_buffer[0, bytes_read])
-        
+                
                 @mutex.synchronize do
                   @output += chunk
+                  
+                  # Fetch the callback pointer safely using our pre-declared variable frame
+                  active_cmd_hook = @active_run_callback
+                  if active_cmd_hook
+                    begin
+                      active_cmd_hook.call(chunk)
+                    rescue ex : Exception
+                      # FIX WORKAROUND FOR BUG #15011:
+                      # Use a dedicated method call to force proper instance-level 
+                      # assignment, breaking out of the shadowed compiler loop bug.
+                      p "#{ex} in #monitor_parent_stream"
+                      set_exception(ex)
         
-                  begin
-                    stream_callback.try(&.call(chunk))
-                  rescue ex : Exception
-                    @exception = ex
+                      master_io.close rescue nil
         
-                    # Re-fetch or use the pre-declared variable safely
-                    proc = @process
-                    if proc
-                      Process.signal(Signal::KILL, proc.pid) rescue nil
+                      proc = @process
+                      Process.signal(Signal::KILL, proc.pid) if proc rescue nil
+                      @reader_active = false
+                      @cond.broadcast
+                      break
                     end
-                    @reader_active = false
-                    @cond.broadcast
-                    break
                   end
         
                   @cond.broadcast 
@@ -203,6 +244,11 @@ module PTY
             end
           end
         end
+        
+        private def set_exception(ex : Exception)
+          p "#{ex} in #set_exception"
+          @exception = ex
+        end
       end
     
       module PrepareEnvironmentVariables
@@ -221,59 +267,6 @@ module PTY
         end
       end
     
-      module SpawnChild
-        private def spawn_child(slave_fd : Int32, args : Array(String)?) : NoReturn
-          PTY::C.login_tty(slave_fd)
-        
-          # Propagate configurations into system environment space
-          prepare_environment_variables.each do |key, value|
-            ENV[key] = value
-          end
-        
-          if directory = @cwd
-            Dir.cd(directory) rescue nil
-          end
-        
-          command_vector = args && !args.empty? ? args : [@shell]
-          command = command_vector[0]
-        
-          Process.exec(
-            command: command,
-            args: command_vector.size > 1 ? command_vector[1..-1] : nil
-          )
-        
-          PTY::C._exit(1)
-        end
-      end
-    
-      module StartSessionEngine
-        private def start_session_engine(args : Array(String)?, stream_callback : (String ->)?)
-          master_fd, slave_fd = allocate_pty
-        
-          # Apply initial hardware window bounds directly inside descriptor registers
-          update_kernel_terminal_dimensions_by_fd(master_fd)
-        
-          pid = PTY::C.fork
-          if pid < 0
-            raise "Error: OS process fork failed."
-          elsif pid == 0
-            # INSIDE THE CHILD PROCESS SANDBOX
-            spawn_child(slave_fd, args)
-          else
-            # INSIDE THE PARENT PROCESS PROXY
-            @process = Process.new(Crystal::System::Process.new(pid))
-            monitor_parent_stream(master_fd, slave_fd, stream_callback)
-          end
-        end
-        
-        private def allocate_pty : Tuple(Int32, Int32)
-          if PTY::C.openpty(out master_fd, out slave_fd, nil, nil, nil) == -1
-            raise "Error: OS failed to allocate high-precision PTY descriptors."
-          end
-          {master_fd, slave_fd}
-        end
-      end
-    
       module UpdateKernelTerminalDimensions
         private def update_kernel_terminal_dimensions
           if io = @master_io
@@ -288,21 +281,38 @@ module PTY
         end
       end
     
-      # Starts the session. Overloaded to make streaming blocks completely optional.
-      def start(args : Array(String)? = nil, &block : String ->)
-        start_session_engine(args, block)
+      # STRICTLY starts a vanilla interactive shell session without inputs or blocks
+      def start : self
+        master_fd, slave_fd = allocate_pty
+        update_kernel_terminal_dimensions_by_fd(master_fd)
+      
+        pid = PTY::C.fork
+        if pid < 0
+          raise "Error: OS process fork failed."
+        elsif pid == 0
+          # INSIDE CHILD
+          PTY::C.login_tty(slave_fd)
+          prepare_environment_variables.each { |k, v| ENV[k] = v }
+      
+          if directory = @cwd
+            Dir.cd(directory)
+          end
+      
+          # Launch the interactive base shell directly
+          Process.exec(@shell)
+          PTY::C._exit(1)
+        else
+          # INSIDE PARENT
+          @process = Process.new(Crystal::System::Process.new(pid))
+          monitor_parent_stream(master_fd, slave_fd)
+        end
+        self
       end
       
-      def start(args : Array(String)? = nil)
-        start_session_engine(args, nil)
-      end
-      
-      include StartSessionEngine
-      
-      include SpawnChild
-      include MonitorParentStream
+      include AllocatePTY
       include UpdateKernelTerminalDimensions
       include PrepareEnvironmentVariables
+      include MonitorParentStream
     end
   
     module Terminate
@@ -365,33 +375,61 @@ module PTY
       class TimeoutError < Exception
       end
       
-      # Blocks cleanly using the zero-argument Sync::ConditionVariable API
+      # Blocks cleanly and ensures no background fiber broadcasts are ever missed
       def wait_for(target : String, timeout : Time::Span = 2.seconds)
         start_time = Time.instant 
-        timed_out = false
-      
-        # Spawn a background timer fiber to break the condition wait if a timeout occurs
-        spawn do
-          sleep(timeout)
-          @mutex.synchronize do
-            timed_out = true
-            @cond.broadcast # Wake up the waiting fiber below
-          end
-        end
       
         @mutex.synchronize do
+          # 1. Loop continuously until the string manifests or time runs out
           while !@output.includes?(target)
-            if timed_out || start_time.elapsed > timeout
-              raise Exception.new("Timed out waiting for '#{target}'")
+            if start_time.elapsed > timeout
+              raise TimeoutError.new("Timed out waiting for '#{target}'")
             end
       
-            # Blocks cleanly with 0% CPU usage until the reader fiber or the timer fiber signals a change
-            @cond.wait
+            # Instantly raise the callback error if one was registered in the background
+            p "in #wait_for, before exin"
+            if ex = @exception
+              p "#{ex} in #wait_for, in ex"
+              @exception = nil
+              raise ex
+            end
+      
+            # 2. Release the mutex lock briefly to let the background reader fiber 
+            # write text chunks, and sleep for a tiny slice to yield priority.
+            @mutex.unlock
+            begin
+              sleep(5.milliseconds)
+            ensure
+              # 3. Automatically re-acquire the lock safely before checking the loop condition again
+              @mutex.lock
+            end
+          end
+          
+          # =======================================================================
+          # THE ABSOLUTE GATE CHECK (FIXES THE BYPASS RACE CONDITION)
+          # =======================================================================
+          # If the loop exited because the target was found, but the background fiber 
+          # encountered a callback exception on that exact chunk step, we must 
+          # prioritize raising the error over a clean return!
+          if ex = @exception
+            @exception = nil
+            raise ex
           end
       
-          # Give the background loop one final slice to catch closely following bytes 
-          # (like the stty size dimensions text flush) before returning to the test
+          # 4. Give the reader loop one final tiny slice to let closely trailing characters settle
           Fiber.yield
+        end
+      end
+    end
+  
+    module Write
+      # Feeds text commands natively to the child process's STDIN wire
+      def write(command : String)
+        if io = @master_io
+          io.write(command.to_slice)
+          io.flush
+        else
+          raise "PTY pipeline unavailable: call #start first."
         end
       end
     end
@@ -407,18 +445,21 @@ module PTY
     
     @process : Process?
     @master_io : IO::FileDescriptor?
-    
-    @mutex : Sync::Mutex
-    @cond : Sync::ConditionVariable
     @exception : Exception? = nil
     @reader_active = true
     
+    @mutex : Sync::Mutex
+    @cond : Sync::ConditionVariable
+    @active_run_callback : (String -> Nil)? = nil
+    
     include Initialize
+    include Run
     include Start
     include Execute
     include Wait
     include WaitFor
     include Terminate
-    include Mutators
+    include Write
+    include Resize
   end
 end

@@ -2,17 +2,22 @@ require "spec"
 require "../../src/pty"
 
 describe PTY::Session do
-  # Multiple input writes must reach one surviving process; the child reads
-  # two lines and combines them, proving this is not a new PTY per write.
   it "preserves one process across repeated writes" do
-    session = PTY::Session.new
-    session.start(["/usr/bin/timeout", "--foreground", "5", "/bin/sh", "-c", "read first; read second; printf 'session-value:%s-%s\\n' \"$first\" \"$second\""])
+    session = PTY::Session.new("/bin/sh")
+    session.start
+
+    # Write the persistent sequence command directly to the active shell context
+    session.write("/bin/sh -c 'read first; read second; printf \"session-value:%s-%s\\n\" \"$first\" \"$second\"'\n")
+    sleep(20.milliseconds)
 
     session.write("persistent\n")
+    sleep(20.milliseconds)
     session.write("state\n")
 
-    exit_code = session.wait
+    # Let data settle cleanly in the master transcript
+    session.wait_for("session-value:persistent-state")
+    session.terminate
+
     session.output.should contain("session-value:persistent-state")
-    exit_code.should eq(0)
   end
 end

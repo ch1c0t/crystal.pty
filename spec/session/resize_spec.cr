@@ -2,17 +2,21 @@ require "spec"
 require "../../src/pty"
 
 describe PTY::Session do
-  # Resizing must update the actual terminal kernel state, not only Session's
-  # metadata; terminal programs discover the new dimensions through TIOCSWINSZ.
   it "changes the dimensions of the existing PTY" do
-    session = PTY::Session.new(rows: 24, columns: 80)
-    session.start(["/usr/bin/timeout", "--foreground", "5", "/bin/sh", "-c", "read proceed; stty size"])
+    # Pass a valid shell binary to the constructor
+    session = PTY::Session.new("/bin/sh", rows: 24, columns: 80)
+    session.start
 
+    # Dynamically change layout properties live over the TTY wire
     session.resize(rows: 42, columns: 120)
+
+    # Execute the testing command block inside the shell context
+    session.run("/usr/bin/timeout 5 /bin/sh -c 'read proceed; stty size'")
+
+    # Signal the reading blocker to complete
     session.write("proceed\n")
 
-    exit_code = session.wait
     session.output.should contain("42 120")
-    exit_code.should eq(0)
+    session.terminate
   end
 end

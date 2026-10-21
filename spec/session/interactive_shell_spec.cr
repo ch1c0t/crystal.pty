@@ -48,12 +48,11 @@ describe PTY::Session do
   it "starts the shell in the requested working directory 2" do
     session = PTY::Session.new("/bin/sh", cwd: "/tmp")
     session.start
-    session.write("pwd\n")
 
-    # Block explicitly until /tmp manifests in the PTY stream
-    session.wait_for("/tmp")
-    session.terminate
-
+    result = session.run("pwd")
+    result.status.should eq(0)
     session.output.should contain("/tmp")
+
+    session.terminate
   end
 end

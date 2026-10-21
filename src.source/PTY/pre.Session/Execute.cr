@@ -1,24 +1,8 @@
-# Core interface adapter required by PTY::Command
+# Backward compatibility adapter for one-shot block commands (Command class)
 def execute(command_string : String, stream_callback : (String -> Nil)?)
-  # 1. Clear any old data if reusing the session instance
-  @output = ""
-
-  # 2. Start the interactive process context using our robust fork pipeline.
-  # To run a raw shell string command natively inside an interactive subshell,
-  # we forward it to the default shell binary using the standard -c execution flag.
-  start_args = [@shell, "-c", command_string]
-
   if callback = stream_callback
-    # Wrap the callback to bridge String -> Nil type compatibility safely
-    start(start_args) do |chunk|
-      callback.call(chunk)
-    end
+    run(command_string) { |chunk| callback.call(chunk) }
   else
-    start(start_args)
+    run(command_string)
   end
-end
-
-# Overload matching block-less execution requests
-def execute(command_string : String)
-  execute(command_string, nil)
 end
