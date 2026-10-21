@@ -6,13 +6,19 @@ describe PTY::Session do
     session = PTY::Session.new(rows: 42, columns: 120)
     session.start
 
-    # We append a reliable sentinel print command to mark when the shell finishes processing
-    session.write("stty size\nprintf 'interactive-session-ok\\n'\n")
-    session.wait_for("interactive-session-ok")
-    session.terminate
+    # Step A: Write the first command and wait explicitly for its output pattern
+    session.write("stty size\n")
+    session.wait_for("42 120") # <--- First Sentinel sync guard
 
+    # Step B: Write the final completion token
+    session.write("printf 'interactive-session-ok\\n'\n")
+    session.wait_for("interactive-session-ok") # <--- Second Sentinel sync guard
+
+    # Now both blocks are guaranteed to be fully flushed in order inside session.output
     session.output.should contain("42 120")
     session.output.should contain("interactive-session-ok")
+
+    session.terminate
   end
 
   it "accepts a shell name and configures the terminal environment" do
