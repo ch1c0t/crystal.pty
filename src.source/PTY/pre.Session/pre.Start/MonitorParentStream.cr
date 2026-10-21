@@ -8,7 +8,15 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
   @reader_active = true
 
   spawn do
-    io_buffer = Bytes.new(4096)
+    io_buffer = Bytes.new(65536)
+
+    # FIX WORKAROUND FOR CRYSTAL BUG #15011 / #17682:
+    # Explicitly declare ALL variables here to force them into a safe local scope.
+    # This prevents the compiler from throwing a KeyError during semantic mapping.
+    bytes_read = 0
+    chunk = ""
+    proc = @process
+
     while !master_io.closed?
       begin
         bytes_read = master_io.read(io_buffer)
@@ -18,7 +26,6 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
 
         chunk = String.new(io_buffer[0, bytes_read])
 
-        # Synchronize updates tightly to prevent memory race states
         @mutex.synchronize do
           @output += chunk
 
@@ -26,20 +33,22 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
             stream_callback.try(&.call(chunk))
           rescue ex : Exception
             @exception = ex
-            if proc = @process
+
+            # Re-fetch or use the pre-declared variable safely
+            proc = @process
+            if proc
               Process.signal(Signal::KILL, proc.pid) rescue nil
             end
             @reader_active = false
-            @cond.broadcast # Alert all waiting threads to exit/throw immediately
+            @cond.broadcast
             break
           end
 
-          # Wakes up any active `wait_for` listeners instantly
           @cond.broadcast 
         end
       rescue ex : IO::Error
         if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
-          Fiber.yield
+          sleep(1.millisecond)
           next
         else
           break
@@ -49,7 +58,7 @@ private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_ca
 
     @mutex.synchronize do
       @reader_active = false
-      @cond.broadcast # Final wrap broadcast unblocks `.wait` checkpoints
+      @cond.broadcast
     end
   end
 end

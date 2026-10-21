@@ -173,7 +173,15 @@ module PTY
           @reader_active = true
         
           spawn do
-            io_buffer = Bytes.new(4096)
+            io_buffer = Bytes.new(65536)
+        
+            # FIX WORKAROUND FOR CRYSTAL BUG #15011 / #17682:
+            # Explicitly declare ALL variables here to force them into a safe local scope.
+            # This prevents the compiler from throwing a KeyError during semantic mapping.
+            bytes_read = 0
+            chunk = ""
+            proc = @process
+        
             while !master_io.closed?
               begin
                 bytes_read = master_io.read(io_buffer)
@@ -183,7 +191,6 @@ module PTY
         
                 chunk = String.new(io_buffer[0, bytes_read])
         
-                # Synchronize updates tightly to prevent memory race states
                 @mutex.synchronize do
                   @output += chunk
         
@@ -191,20 +198,22 @@ module PTY
                     stream_callback.try(&.call(chunk))
                   rescue ex : Exception
                     @exception = ex
-                    if proc = @process
+        
+                    # Re-fetch or use the pre-declared variable safely
+                    proc = @process
+                    if proc
                       Process.signal(Signal::KILL, proc.pid) rescue nil
                     end
                     @reader_active = false
-                    @cond.broadcast # Alert all waiting threads to exit/throw immediately
+                    @cond.broadcast
                     break
                   end
         
-                  # Wakes up any active `wait_for` listeners instantly
                   @cond.broadcast 
                 end
               rescue ex : IO::Error
                 if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
-                  Fiber.yield
+                  sleep(1.millisecond)
                   next
                 else
                   break
@@ -214,7 +223,7 @@ module PTY
         
             @mutex.synchronize do
               @reader_active = false
-              @cond.broadcast # Final wrap broadcast unblocks `.wait` checkpoints
+              @cond.broadcast
             end
           end
         end
@@ -380,22 +389,33 @@ module PTY
       class TimeoutError < Exception
       end
       
-      # Blocks efficiently without wasting CPU loops until the target string arrives
+      # Blocks cleanly using the zero-argument Sync::ConditionVariable API
       def wait_for(target : String, timeout : Time::Span = 2.seconds)
         start_time = Time.instant 
+        timed_out = false
+      
+        # Spawn a background timer fiber to break the condition wait if a timeout occurs
+        spawn do
+          sleep(timeout)
+          @mutex.synchronize do
+            timed_out = true
+            @cond.broadcast # Wake up the waiting fiber below
+          end
+        end
       
         @mutex.synchronize do
-          # Loop safely manages spurious wakeups and tracks time limits dynamically
           while !@output.includes?(target)
-            remaining = timeout - start_time.elapsed
-            if remaining <= Time::Span::ZERO
-              raise TimeoutError.new("Timed out waiting for '#{target}'")
+            if timed_out || start_time.elapsed > timeout
+              raise Exception.new("Timed out waiting for '#{target}'")
             end
       
-            # Blocks cleanly; instantly releases the lock so the reader fiber can write text,
-            # then re-acquires the lock automatically the millisecond it gets signaled.
-            @cond.wait(remaining)
+            # Blocks cleanly with 0% CPU usage until the reader fiber or the timer fiber signals a change
+            @cond.wait
           end
+          
+          # Give the background loop one final slice to catch closely following bytes 
+          # (like the stty size dimensions text flush) before returning to the test
+          Fiber.yield
         end
       end
     end
