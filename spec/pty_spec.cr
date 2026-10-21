@@ -8,7 +8,7 @@ require "./session/terminate_spec"
 
 describe PTY do
   it "offers direct argv execution through PTY.run" do
-    output, exit_code = PTY.run(["/bin/sh", "-c", "printf direct-argv"])
+    output, exit_code = PTY.run("/bin/sh -c 'printf direct-argv'")
 
     output.should contain("direct-argv")
     exit_code.should eq(0)
