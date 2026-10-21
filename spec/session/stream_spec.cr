@@ -16,7 +16,7 @@ describe PTY::Session do
     chunks.join.should eq(output)
     exit_code.should eq(0)
   ensure
-    session.try(&.terminate)
+    session.terminate
   end
 
   it "raises callback errors promptly when a command produces continuous output" do
@@ -32,6 +32,6 @@ describe PTY::Session do
 
     (Time.instant - started_at).should be < 1.second
   ensure
-    session.try(&.terminate)
+    session.terminate
   end
 end
