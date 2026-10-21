@@ -6,7 +6,7 @@ describe PTY::Command do
   # where requested rows and columns are accepted but never applied to the PTY.
   it "supports caller-specified terminal dimensions" do
     session = PTY::Session.new(rows: 42, columns: 120)
-    command = PTY::Command.new("stty size", session)
+    command = PTY::Command.new("stty size", session.start)
 
     output, exit_code = command.execute_inside_pty { |_chunk| }
 
