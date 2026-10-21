@@ -1,4 +1,6 @@
 require "uuid"
+require "sync/mutex"
+require "sync/condition_variable"
 
 module PTY
   lib C
@@ -124,6 +126,8 @@ module PTY
         @env : Hash(String, String)? = nil,
         @cwd : String? = nil
       )
+        @mutex = Sync::Mutex.new
+        @cond = Sync::ConditionVariable.new(@mutex)
       end
       
       def initialize(
@@ -135,6 +139,8 @@ module PTY
         @env : Hash(String, String)? = nil,
         @cwd : String? = nil
       )
+        @mutex = Sync::Mutex.new
+        @cond = Sync::ConditionVariable.new(@mutex)
       end
     end
   
@@ -160,46 +166,57 @@ module PTY
     module Start
       module MonitorParentStream
         private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_callback : (String ->)?)
-          # Safely close slave copy in the parent process
           IO::FileDescriptor.new(slave_fd, close_on_finalize: true).close
         
           master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
+          IO::FileDescriptor.set_blocking(master_fd, false)
           @master_io = master_io
         
+          @reader_active = true
+        
           spawn do
-            begin
-              io_buffer = Bytes.new(4096)
-              # Keep reading as long as the master IO is open and active
-              while !master_io.closed? && (bytes_read = master_io.read(io_buffer)) > 0
+            io_buffer = Bytes.new(4096)
+            while !master_io.closed?
+              begin
+                bytes_read = master_io.read(io_buffer)
+                if bytes_read == 0
+                  break
+                end
+        
                 chunk = String.new(io_buffer[0, bytes_read])
-                @output += chunk
         
-                # Wrap the user callback in a begin/rescue block
-                begin
-                  stream_callback.try(&.call(chunk))
-                rescue ex : Exception
-                  @exception = ex # Save it to re-raise in the main thread
+                # Synchronize updates tightly to prevent memory race states
+                @mutex.synchronize do
+                  @output += chunk
         
-                  # allows process.wait inside session.wait to return in microseconds.
-                  if process = @process
-                    Process.signal(Signal::KILL, process.pid) rescue nil
+                  begin
+                    stream_callback.try(&.call(chunk))
+                  rescue ex : Exception
+                    @exception = ex
+                    if proc = @process
+                      Process.signal(Signal::KILL, proc.pid) rescue nil
+                    end
+                    @reader_active = false
+                    @cond.broadcast # Alert all waiting threads to exit/throw immediately
+                    break
                   end
         
-                  break # Exit the reader loop immediately
+                  # Wakes up any active `wait_for` listeners instantly
+                  @cond.broadcast 
                 end
-        
-                # Use non-blocking channel send to avoid freezing the reader fiber
-                select
-                when @channel.send(chunk)
+              rescue ex : IO::Error
+                if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
+                  Fiber.yield
+                  next
                 else
-                  # If nothing is listening to the channel, move along smoothly
+                  break
                 end
               end
-            rescue IO::Error
-              # EIO or stream closure safely handled
-            ensure
-              @channel.close rescue nil
-              @reader_done.send(nil) rescue nil
+            end
+        
+            @mutex.synchronize do
+              @reader_active = false
+              @cond.broadcast # Final wrap broadcast unblocks `.wait` checkpoints
             end
           end
         end
@@ -334,22 +351,24 @@ module PTY
     end
   
     module Wait
-      # Natively blocks until the child process and its inner commands completely exit
+      # Blocks the main execution thread cleanly until the process finishes running
       def wait : Int32
         if process = @process
-          # Wait for the OS process to terminate first
+          # Wait for the OS status to toggle natively
           status = process.wait
-      
-          # Now that the process is dead, close the master stream to break the reader fiber loop
           cleanup_streams
       
-          # Wait for the background stream reader fiber to process all incoming data
-          @reader_done.receive?
+          # Block efficiently until the reader loop finishes flushing remaining buffers
+          @mutex.synchronize do
+            while @reader_active
+              @cond.wait(@mutex)
+            end
       
-          # If the background stream fiber caught a callback error, bubble it up now
-          if ex = @exception
-            @exception = nil # Reset state
-            raise ex
+            # Propagate asynchronous callback errors safely if caught
+            if ex = @exception
+              @exception = nil
+              raise ex
+            end
           end
       
           status.exit_code
@@ -363,25 +382,21 @@ module PTY
       class TimeoutError < Exception
       end
       
-      # Blocks until the string is found in the output stream, or times out
+      # Blocks efficiently without wasting CPU loops until the target string arrives
       def wait_for(target : String, timeout : Time::Span = 2.seconds)
         start_time = Time.instant 
       
-        loop do
-          if start_time.elapsed > timeout
-            raise TimeoutError.new("Timed out waiting for '#{target}'")
-          end
+        @mutex.synchronize do
+          # Loop safely manages spurious wakeups and tracks time limits dynamically
+          while !@output.includes?(target)
+            remaining = timeout - start_time.elapsed
+            if remaining <= Time::Span::ZERO
+              raise TimeoutError.new("Timed out waiting for '#{target}'")
+            end
       
-          return if @output.includes?(target)
-      
-          # Use non-blocking read to drain the stream channel quickly
-          select
-          when _chunk = @channel.receive?
-            return if @output.includes?(target)
-          else
-            # Brief pause to yield to the reading fiber if the channel is empty
-            sleep(5.milliseconds)
-            return if @output.includes?(target)
+            # Blocks cleanly; instantly releases the lock so the reader fiber can write text,
+            # then re-acquires the lock automatically the millisecond it gets signaled.
+            @cond.wait(@mutex, remaining)
           end
         end
       end
@@ -398,9 +413,11 @@ module PTY
     
     @process : Process?
     @master_io : IO::FileDescriptor?
-    @channel = Channel(String).new
-    @reader_done = Channel(Nil).new
+    
+    @mutex : Sync::Mutex
+    @cond : Sync::ConditionVariable
     @exception : Exception? = nil
+    @reader_active = true
     
     include Initialize
     include Start

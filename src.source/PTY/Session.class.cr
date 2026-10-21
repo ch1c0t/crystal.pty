@@ -9,9 +9,11 @@ getter output : String = ""
 
 @process : Process?
 @master_io : IO::FileDescriptor?
-@channel = Channel(String).new
-@reader_done = Channel(Nil).new
+
+@mutex : Sync::Mutex
+@cond : Sync::ConditionVariable
 @exception : Exception? = nil
+@reader_active = true
 
 include Initialize
 include Start

@@ -7,6 +7,8 @@ def initialize(
   @env : Hash(String, String)? = nil,
   @cwd : String? = nil
 )
+  @mutex = Sync::Mutex.new
+  @cond = Sync::ConditionVariable.new(@mutex)
 end
 
 def initialize(
@@ -18,4 +20,6 @@ def initialize(
   @env : Hash(String, String)? = nil,
   @cwd : String? = nil
 )
+  @mutex = Sync::Mutex.new
+  @cond = Sync::ConditionVariable.new(@mutex)
 end

@@ -1,19 +1,21 @@
-# Natively blocks until the child process and its inner commands completely exit
+# Blocks the main execution thread cleanly until the process finishes running
 def wait : Int32
   if process = @process
-    # Wait for the OS process to terminate first
+    # Wait for the OS status to toggle natively
     status = process.wait
-
-    # Now that the process is dead, close the master stream to break the reader fiber loop
     cleanup_streams
 
-    # Wait for the background stream reader fiber to process all incoming data
-    @reader_done.receive?
+    # Block efficiently until the reader loop finishes flushing remaining buffers
+    @mutex.synchronize do
+      while @reader_active
+        @cond.wait(@mutex)
+      end
 
-    # If the background stream fiber caught a callback error, bubble it up now
-    if ex = @exception
-      @exception = nil # Reset state
-      raise ex
+      # Propagate asynchronous callback errors safely if caught
+      if ex = @exception
+        @exception = nil
+        raise ex
+      end
     end
 
     status.exit_code

@@ -1,44 +1,55 @@
 private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32, stream_callback : (String ->)?)
-  # Safely close slave copy in the parent process
   IO::FileDescriptor.new(slave_fd, close_on_finalize: true).close
 
   master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
+  IO::FileDescriptor.set_blocking(master_fd, false)
   @master_io = master_io
 
+  @reader_active = true
+
   spawn do
-    begin
-      io_buffer = Bytes.new(4096)
-      # Keep reading as long as the master IO is open and active
-      while !master_io.closed? && (bytes_read = master_io.read(io_buffer)) > 0
+    io_buffer = Bytes.new(4096)
+    while !master_io.closed?
+      begin
+        bytes_read = master_io.read(io_buffer)
+        if bytes_read == 0
+          break
+        end
+
         chunk = String.new(io_buffer[0, bytes_read])
-        @output += chunk
 
-        # Wrap the user callback in a begin/rescue block
-        begin
-          stream_callback.try(&.call(chunk))
-        rescue ex : Exception
-          @exception = ex # Save it to re-raise in the main thread
+        # Synchronize updates tightly to prevent memory race states
+        @mutex.synchronize do
+          @output += chunk
 
-          # allows process.wait inside session.wait to return in microseconds.
-          if process = @process
-            Process.signal(Signal::KILL, process.pid) rescue nil
+          begin
+            stream_callback.try(&.call(chunk))
+          rescue ex : Exception
+            @exception = ex
+            if proc = @process
+              Process.signal(Signal::KILL, proc.pid) rescue nil
+            end
+            @reader_active = false
+            @cond.broadcast # Alert all waiting threads to exit/throw immediately
+            break
           end
 
-          break # Exit the reader loop immediately
+          # Wakes up any active `wait_for` listeners instantly
+          @cond.broadcast 
         end
-
-        # Use non-blocking channel send to avoid freezing the reader fiber
-        select
-        when @channel.send(chunk)
+      rescue ex : IO::Error
+        if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
+          Fiber.yield
+          next
         else
-          # If nothing is listening to the channel, move along smoothly
+          break
         end
       end
-    rescue IO::Error
-      # EIO or stream closure safely handled
-    ensure
-      @channel.close rescue nil
-      @reader_done.send(nil) rescue nil
+    end
+
+    @mutex.synchronize do
+      @reader_active = false
+      @cond.broadcast # Final wrap broadcast unblocks `.wait` checkpoints
     end
   end
 end
