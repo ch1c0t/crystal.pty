@@ -331,7 +331,7 @@ module PTY
         
           spawn do
             io_buffer = Bytes.new(65536)
-            
+        
             # FIX WORKAROUND FOR CRYSTAL BUG #15011:
             # Explicitly declare ALL loop-accessed variables here to anchor their scope
             # before entering the nested while/begin/rescue block structure.
@@ -346,10 +346,10 @@ module PTY
                 break if bytes_read == 0
         
                 chunk = String.new(io_buffer[0, bytes_read])
-                
+        
                 @mutex.synchronize do
                   @output += chunk
-                  
+        
                   # Fetch the callback pointer safely using our pre-declared variable frame
                   active_cmd_hook = @active_run_callback
                   if active_cmd_hook
@@ -359,7 +359,6 @@ module PTY
                       # FIX WORKAROUND FOR BUG #15011:
                       # Use a dedicated method call to force proper instance-level 
                       # assignment, breaking out of the shadowed compiler loop bug.
-                      p "#{ex} in #monitor_parent_stream"
                       set_exception(ex)
         
                       master_io.close rescue nil
@@ -392,7 +391,6 @@ module PTY
         end
         
         private def set_exception(ex : Exception)
-          p "#{ex} in #set_exception"
           @exception = ex
         end
       end
@@ -592,9 +590,7 @@ module PTY
             end
       
             # Instantly raise the callback error if one was registered in the background
-            p "in #wait_for, before exin"
             if ex = @exception
-              p "#{ex} in #wait_for, in ex"
               @exception = nil
               raise ex
             end

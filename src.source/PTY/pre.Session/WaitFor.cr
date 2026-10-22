@@ -13,9 +13,7 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds)
       end
 
       # Instantly raise the callback error if one was registered in the background
-      p "in #wait_for, before exin"
       if ex = @exception
-        p "#{ex} in #wait_for, in ex"
         @exception = nil
         raise ex
       end
