@@ -7,9 +7,14 @@ alias Output = String
 alias ExitCode = Int32
 
 def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(Output, ExitCode)
+  # Automatically start the session right at the execution threshold if it's not yet open
+  if !@session.started?
+    @session.start
+  end
+
   # 1. Execute the string script natively over the interactive wire pipeline
   result = @session.run(@raw_string, &stream_callback)
-  
+
   # 2. Only terminate the session if this specific command created it natively
   if @owns_session
     @session.terminate

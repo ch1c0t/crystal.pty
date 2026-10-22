@@ -1,5 +1,10 @@
 # STRICTLY starts a vanilla interactive shell session without inputs or blocks
 def start : self
+  # Guard against multiple accidental start calls
+  if @started.get
+    return self
+  end
+
   master_fd, slave_fd = allocate_pty
   update_kernel_terminal_dimensions_by_fd(master_fd)
 

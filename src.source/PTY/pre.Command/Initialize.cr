@@ -3,9 +3,7 @@
 
 # Constructor A: Command creates its own session instance
 def initialize(@raw_string : String)
-  session = Session.new
-  session.start # Fire up the interactive subshell thread pool
-  @session = session
+  @session = Session.new
   @owns_session = true # Mark that this instance handles its own cleanup
 end
 

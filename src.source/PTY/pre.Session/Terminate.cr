@@ -13,7 +13,7 @@ end
 private def cleanup_streams
   @master_io.try(&.close)
   @master_io = nil
-  @process = nil
+  @started.set(false)
 end
 
 def alive? : Bool
@@ -22,4 +22,9 @@ def alive? : Bool
   else
     false
   end
+end
+
+# Returns whether the pseudo-terminal descriptors have been booted
+def started? : Bool
+  @started.get
 end

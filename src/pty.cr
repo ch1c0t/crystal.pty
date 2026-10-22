@@ -51,9 +51,7 @@ module PTY
       
       # Constructor A: Command creates its own session instance
       def initialize(@raw_string : String)
-        session = Session.new
-        session.start # Fire up the interactive subshell thread pool
-        @session = session
+        @session = Session.new
         @owns_session = true # Mark that this instance handles its own cleanup
       end
       
@@ -72,9 +70,14 @@ module PTY
     alias ExitCode = Int32
     
     def execute_inside_pty(&stream_callback : String -> Nil) : Tuple(Output, ExitCode)
+      # Automatically start the session right at the execution threshold if it's not yet open
+      if !@session.started?
+        @session.start
+      end
+    
       # 1. Execute the string script natively over the interactive wire pipeline
       result = @session.run(@raw_string, &stream_callback)
-      
+    
       # 2. Only terminate the session if this specific command created it natively
       if @owns_session
         @session.terminate
@@ -112,6 +115,7 @@ module PTY
       )
         @mutex = Sync::Mutex.new
         @cond = Sync::ConditionVariable.new(@mutex)
+        @started = Atomic(Bool).new(false)
       end
       
       def initialize(
@@ -125,6 +129,7 @@ module PTY
       )
         @mutex = Sync::Mutex.new
         @cond = Sync::ConditionVariable.new(@mutex)
+        @started = Atomic(Bool).new(false)
       end
     end
   
@@ -376,6 +381,11 @@ module PTY
     
       # STRICTLY starts a vanilla interactive shell session without inputs or blocks
       def start : self
+        # Guard against multiple accidental start calls
+        if @started.get
+          return self
+        end
+      
         master_fd, slave_fd = allocate_pty
         update_kernel_terminal_dimensions_by_fd(master_fd)
       
@@ -424,7 +434,7 @@ module PTY
       private def cleanup_streams
         @master_io.try(&.close)
         @master_io = nil
-        @process = nil
+        @started.set(false)
       end
       
       def alive? : Bool
@@ -433,6 +443,11 @@ module PTY
         else
           false
         end
+      end
+      
+      # Returns whether the pseudo-terminal descriptors have been booted
+      def started? : Bool
+        @started.get
       end
     end
   

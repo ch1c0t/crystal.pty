@@ -9,6 +9,7 @@ def initialize(
 )
   @mutex = Sync::Mutex.new
   @cond = Sync::ConditionVariable.new(@mutex)
+  @started = Atomic(Bool).new(false)
 end
 
 def initialize(
@@ -22,4 +23,5 @@ def initialize(
 )
   @mutex = Sync::Mutex.new
   @cond = Sync::ConditionVariable.new(@mutex)
+  @started = Atomic(Bool).new(false)
 end
