@@ -32,6 +32,11 @@ private def harvest_execution_block(
     
     # Strip out direct input command echoes cleanly
     clean_line = line.gsub(/#{Regex.escape(command_string)}/, "").strip
+
+    # Strip common leading shell prompt decorations ($ , % , # )
+    # if they are attached to the front of the output line text
+    clean_line = clean_line.sub(/^[\$\%\#]\s*/, "").strip
+
     clean_lines << clean_line unless clean_line.empty?
   end
 
