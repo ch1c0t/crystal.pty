@@ -1,6 +1,6 @@
 # Helper A: Generates the boundary walls
 private def generate_sentinels : Tuple(String, String)
-  timestamp = Time.utc.to_unix_f.to_s.gsub(".", "")
+  timestamp = Time.utc.to_unix_ms
   rand_id = Random.rand(100..999)
 
   start_sentinel = "START_MARK_#{timestamp}_#{rand_id}"
