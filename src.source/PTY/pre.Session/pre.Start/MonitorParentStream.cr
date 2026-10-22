@@ -1,6 +1,4 @@
-private def monitor_parent_stream(master_fd : Int32, slave_fd : Int32)
-  IO::FileDescriptor.new(slave_fd, close_on_finalize: true).close
-
+private def monitor_parent_stream(master_fd : Int32)
   master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
   IO::FileDescriptor.set_blocking(master_fd, false)
   @master_io = master_io
