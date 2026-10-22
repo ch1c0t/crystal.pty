@@ -138,26 +138,64 @@ module PTY
     end
   
     module Run
+      module HarvestExecutionBlock
+        private def harvest_execution_block(
+          snapshot_index : Int32, 
+          command_string : String, 
+          start_sentinel : String, 
+          end_sentinel : String, 
+          captured_text : String
+        ) : PTY::ExecutionResult
+        
+          command_transcript = @output[snapshot_index..-1]
+          exit_status = 0
+          clean_output = ""
+        
+          # Allow leading prompts before the start sentinel here as well
+          if match = command_transcript.match(/START_MARK_\d+_\d+\r?\n([\s\S]*?)#{end_sentinel}__(\d+)__/)
+            exit_status = match[2].to_i
+            # Grab index 1 to isolate ONLY the inner execution content payload block
+            clean_output = match[1].gsub(/#{command_string}\r?\n/, "").strip
+          else
+            if !@reader_active && (proc = @process)
+              exit_status = proc.wait.exit_code rescue 0
+            end
+            clean_output = captured_text
+              .gsub(/#{command_string}\r?\n/, "")
+              .gsub(/echo #{start_sentinel}\r?\n/, "")
+              .gsub(/echo #{end_sentinel}__\$\?__\r?\n/, "")
+              .strip
+          end
+        
+          PTY::ExecutionResult.new(output: clean_output, status: exit_status)
+        end
+      end
+    
       # Streams execution chunks interactively in real time down an open session pipeline
       def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionResult
-        # Phase 1: Setup unique markers and attach the live interceptor
+        initial_snapshot_size = @output.bytesize
         start_sentinel, end_sentinel = generate_sentinels
         captured_text = ""
-        activate_live_filter(start_sentinel, end_sentinel, ->(chunk : String) {
+      
+        # Phase 1: Setup live real-time routing listener
+        activate_live_filter(->(chunk : String) {
           captured_text += chunk
           stream_callback.call(chunk)
         })
       
-        # Phase 2: Write encapsulated sandwich instructions and wait for completion
+        # Phase 2: Dispatch wrapped terminal commands and block until done
         dispatch_sandwich_commands(command_string, start_sentinel, end_sentinel)
         wait_for(end_sentinel)
-      
-        # Deactivate the temporary hook immediately
         deactivate_live_filter
       
-        # Phase 3: Harvest metrics and return the clean data structure
-        exit_status = harvest_exit_status(end_sentinel)
-        PTY::ExecutionResult.new(output: captured_text.strip, status: exit_status)
+        # Phase 3: Extract clean results out of the sandboxed boundaries
+        harvest_execution_block(
+          initial_snapshot_size, 
+          command_string, 
+          start_sentinel, 
+          end_sentinel, 
+          captured_text
+        )
       end
       
       # Overload matching block-less execution requests
@@ -166,23 +204,23 @@ module PTY
       end
       
       # -------------------------------------------------------------
-      # Extracted Private Helpers for #run
+      # The 4 Easy-To-Remember Private Helpers
       # -------------------------------------------------------------
       
+      # Helper A: Generates the boundary walls
       private def generate_sentinels : Tuple(String, String)
-        start_sentinel = "START_MARK_#{Random.rand(100000..999999)}"
-        end_sentinel   = "END_MARK_#{Random.rand(100000..999999)}"
+        timestamp = Time.utc.to_unix_f.to_s.gsub(".", "")
+        rand_id = Random.rand(100..999)
+      
+        start_sentinel = "START_MARK_#{timestamp}_#{rand_id}"
+        end_sentinel   = "END_MARK_#{timestamp}_#{rand_id}"
         {start_sentinel, end_sentinel}
       end
       
-      private def activate_live_filter(start_sentinel : String, end_sentinel : String, accumulator : String -> Nil)
+      # Helper B: Binds the lossless real-time stream pipe hooks
+      private def activate_live_filter(accumulator : String -> Nil)
         @mutex.synchronize do
-          @active_run_callback = ->(chunk : String) {
-            # Lossless live filtering: skip command infrastructure lines
-            unless chunk.includes?(start_sentinel) || chunk.includes?(end_sentinel) || chunk.includes?("echo ")
-              accumulator.call(chunk)
-            end
-          }
+          @active_run_callback = ->(chunk : String) { accumulator.call(chunk) }
         end
       end
       
@@ -192,27 +230,14 @@ module PTY
         end
       end
       
+      # Helper C: Transmits the text sandwich straight down the interactive line
       private def dispatch_sandwich_commands(command_string : String, start_sentinel : String, end_sentinel : String)
         write("echo #{start_sentinel}\n")
-        if !command_string.empty?
-          write("#{command_string}\n")
-        end
+        write("#{command_string}\n") unless command_string.empty?
         write("echo #{end_sentinel}__$?__\n")
       end
       
-      private def harvest_exit_status(end_sentinel : String) : Int32
-        # Check if the sentinel successfully printed its completion marker token
-        if match = @output.match(/#{end_sentinel}__(\d+)__/)
-          return match[1].to_i
-        end
-      
-        # Fallback: If the shell died abruptly, query the native process engine register
-        if !@reader_active && (proc = @process)
-          return proc.wait.exit_code rescue 0
-        end
-      
-        0
-      end
+      include HarvestExecutionBlock
     end
   
     module Start

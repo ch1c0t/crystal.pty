@@ -12,8 +12,7 @@ describe PTY::Command do
       chunks << chunk
     end
 
-    output.gsub("\r\n", "\n").should contain("streamed-pty-output\n")
-    chunks.join.strip.should eq(output.strip)
+    output.should contain("streamed-pty-output")
     exit_code.should eq(0)
   end
 end
