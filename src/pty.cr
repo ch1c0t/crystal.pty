@@ -198,7 +198,6 @@ module PTY
         end
       
         module FilterInfrastructureLines
-          # Helper 2: Strips markers, echoes, and prompt decorations line-by-line
           private def filter_infrastructure_lines(
             transcript : String, 
             command_string : String, 
@@ -208,16 +207,24 @@ module PTY
             clean_lines = [] of String
             
             transcript.each_line do |line|
-              next if line.includes?(start_sentinel)
-              next if line.includes?(end_sentinel)
-              next if line.includes?("echo START_MARK")
-              next if line.includes?("echo END_MARK")
+              trimmed_line = line.strip
+          
+              # 1. Skip core infrastructure sentinel rows cleanly using explicit words
+              next if trimmed_line.includes?("START_MARK")
+              next if trimmed_line.includes?("END_MARK")
               
-              # Clean out direct command echo inputs
+              # 2. FIXED: Catch split trailing sentinel fragments (like "738_730__$?__") 
+              # by checking if the row ends with the unique sentinel indicator sequence
+              next if trimmed_line.ends_with?("__$?__")
+              next if trimmed_line.includes?("__") && trimmed_line.ends_with?("__")
+          
+              # 3. Clean out direct input command echoes
               clean_line = line.gsub(/#{Regex.escape(command_string)}/, "").strip
               
-              # Strip leading interactive prompt symbols ($ , % , # ) safely
-              clean_line = clean_line.sub(/^[\$\%\#]\s*/, "").strip
+              # 4. Strip leading prompt indicators cleanly without a complex regex matcher
+              if clean_line.starts_with?('$') || clean_line.starts_with?('%') || clean_line.starts_with?('#')
+                clean_line = clean_line[1..-1].strip
+              end
               
               clean_lines << clean_line unless clean_line.empty?
             end
@@ -242,6 +249,11 @@ module PTY
           
           # Step 2: Line-by-line infrastructure filtering
           clean_output = filter_infrastructure_lines(command_transcript, command_string, start_sentinel, end_sentinel)
+        
+          # Double-check leading prompts on the final output string block
+          if clean_output.starts_with?('$') || clean_output.starts_with?('%') || clean_output.starts_with?('#')
+            clean_output = clean_output[1..-1].strip
+          end
         
           # Step 3: Fallback verification if the line buffer yielded an empty block
           if clean_output.empty? && !captured_text.empty?
