@@ -49,6 +49,16 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds)
     end
 
     # 4. Give the reader loop one final tiny slice to let closely trailing characters settle
-    Fiber.yield
+    # Give the background loop extra dedicated microsecond slices to finish
+    # draining high-velocity buffers completely before we return control!
+    3.times do
+      @mutex.unlock
+      begin
+        Fiber.yield
+        sleep(1.millisecond)
+      ensure
+        @mutex.lock
+      end
+    end
   end
 end

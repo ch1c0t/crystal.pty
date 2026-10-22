@@ -1,0 +1,46 @@
+"in #wait_for, before exin"
+."in #wait_for, before exin"
+"callback exploded in #monitor_parent_stream"
+"callback exploded in #set_exception"
+."in #wait_for, before exin"
+F"in #wait_for, before exin"
+."in #wait_for, before exin"
+"in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+.."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+"stream sink failed in #monitor_parent_stream"
+"stream sink failed in #set_exception"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+."in #wait_for, before exin"
+.
+
+Failures:
+
+  1) PTY::Session robustly preserves nested single and double quotation marks inside a single interactive session
+     Failure/Error: result_a.output.should contain("double-quotes-inside-single")
+
+       Expected:   "$ START_MARK_17927006271703093_851\r\n" + "$"
+       to include: "double-quotes-inside-single"
+
+     # spec/session/quote_escaping_spec.cr:15
+
+Finished in 185.17 milliseconds
+24 examples, 1 failures, 0 errors, 0 pending
+
+Failed examples:
+
+crystal spec spec/session/quote_escaping_spec.cr:5 # PTY::Session robustly preserves nested single and double quotation marks inside a single interactive session
