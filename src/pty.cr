@@ -1,4 +1,3 @@
-require "uuid"
 require "sync/mutex"
 require "sync/condition_variable"
 
