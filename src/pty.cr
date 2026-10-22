@@ -165,6 +165,68 @@ module PTY
       end
     
       module HarvestExecutionBlock
+        module ExtractExitCode
+          # Helper 1: Queries the exit status from the end sentinel or raw process table
+          private def extract_exit_code(command_transcript : String, end_sentinel : String) : Int32
+            if match = command_transcript.match(/#{end_sentinel}__(\d+)__/)
+              return match[1].not_nil!.to_i
+            end
+          
+            if !@reader_active && (proc = @process)
+              return proc.wait.exit_code rescue 0
+            end
+          
+            0
+          end
+        end
+      
+        module FallbackCleanText
+          # Helper 3: Secondary cleanup filter block targeting raw real-time captured buffers
+          private def fallback_clean_text(
+            captured_text : String, 
+            command_string : String, 
+            start_sentinel : String, 
+            end_sentinel : String
+          ) : String
+            captured_text
+              .gsub(/#{Regex.escape(command_string)}\r?\n/, "")
+              .gsub(/echo START_MARK_.+?\r?\n/, "")
+              .gsub(/echo #{end_sentinel}__\$\?__\r?\n/, "")
+              .sub(/^[\$\%\#]\s*/, "")
+              .strip
+          end
+        end
+      
+        module FilterInfrastructureLines
+          # Helper 2: Strips markers, echoes, and prompt decorations line-by-line
+          private def filter_infrastructure_lines(
+            transcript : String, 
+            command_string : String, 
+            start_sentinel : String, 
+            end_sentinel : String
+          ) : String
+            clean_lines = [] of String
+            
+            transcript.each_line do |line|
+              next if line.includes?(start_sentinel)
+              next if line.includes?(end_sentinel)
+              next if line.includes?("echo START_MARK")
+              next if line.includes?("echo END_MARK")
+              
+              # Clean out direct command echo inputs
+              clean_line = line.gsub(/#{Regex.escape(command_string)}/, "").strip
+              
+              # Strip leading interactive prompt symbols ($ , % , # ) safely
+              clean_line = clean_line.sub(/^[\$\%\#]\s*/, "").strip
+              
+              clean_lines << clean_line unless clean_line.empty?
+            end
+          
+            clean_lines.join("\n").strip
+          end
+        end
+      
+        # Isolates the captured text and extracts the exit status safely
         private def harvest_execution_block(
           snapshot_index : Int32, 
           command_string : String, 
@@ -174,52 +236,24 @@ module PTY
         ) : PTY::ExecutionResult
         
           command_transcript = @output[snapshot_index..-1]
-          exit_status = 0
-        
-          # 1. Harvest the exact numeric exit status code cleanly from the end token
-          if match = command_transcript.match(/#{end_sentinel}__(\d+)__/)
-            exit_status = match[1].to_i
-          else
-            if !@reader_active && (proc = @process)
-              exit_status = proc.wait.exit_code rescue 0
-            end
-          end
-        
-          # 2. LINE-BY-LINE BLOCK HARVESTER (100% Immune to out-of-order buffering)
-          # Split the transcript into component lines and filter out any infrastructure rows.
-          clean_lines = [] of String
           
-          command_transcript.each_line do |line|
-            # Skip infrastructure echoes, sentinel keywords, and standalone trailing shell prompts
-            next if line.includes?(start_sentinel)
-            next if line.includes?(end_sentinel)
-            next if line.includes?("echo START_MARK")
-            next if line.includes?("echo END_MARK")
-            next if line.strip == "$" || line.strip == "%"
-            
-            # Strip out direct input command echoes cleanly
-            clean_line = line.gsub(/#{Regex.escape(command_string)}/, "").strip
+          # Step 1: Extract status
+          exit_status = extract_exit_code(command_transcript, end_sentinel)
+          
+          # Step 2: Line-by-line infrastructure filtering
+          clean_output = filter_infrastructure_lines(command_transcript, command_string, start_sentinel, end_sentinel)
         
-            # Strip common leading shell prompt decorations ($ , % , # )
-            # if they are attached to the front of the output line text
-            clean_line = clean_line.sub(/^[\$\%\#]\s*/, "").strip
-        
-            clean_lines << clean_line unless clean_line.empty?
-          end
-        
-          clean_output = clean_lines.join("\n").strip
-        
-          # Fallback to the raw captured text if the line parser yields an empty block
+          # Step 3: Fallback verification if the line buffer yielded an empty block
           if clean_output.empty? && !captured_text.empty?
-            clean_output = captured_text
-              .gsub(/#{Regex.escape(command_string)}\r?\n/, "")
-              .gsub(/echo START_MARK_.+?\r?\n/, "")
-              .gsub(/echo END_MARK_.+?\r?\n/, "")
-              .strip
+            clean_output = fallback_clean_text(captured_text, command_string, start_sentinel, end_sentinel)
           end
         
           PTY::ExecutionResult.new(output: clean_output, status: exit_status)
         end
+        
+        include ExtractExitCode
+        include FilterInfrastructureLines
+        include FallbackCleanText
       end
     
       module LiveFilter
