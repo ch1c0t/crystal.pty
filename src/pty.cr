@@ -138,6 +138,27 @@ module PTY
     end
   
     module Run
+      module DispatchSandwichCommands
+        # Helper C: Transmits the text sandwich straight down the interactive line
+        private def dispatch_sandwich_commands(command_string : String, start_sentinel : String, end_sentinel : String)
+          write("echo #{start_sentinel}\n")
+          write("#{command_string}\n") unless command_string.empty?
+          write("echo #{end_sentinel}__$?__\n")
+        end
+      end
+    
+      module GenerateSentinels
+        # Helper A: Generates the boundary walls
+        private def generate_sentinels : Tuple(String, String)
+          timestamp = Time.utc.to_unix_f.to_s.gsub(".", "")
+          rand_id = Random.rand(100..999)
+        
+          start_sentinel = "START_MARK_#{timestamp}_#{rand_id}"
+          end_sentinel   = "END_MARK_#{timestamp}_#{rand_id}"
+          {start_sentinel, end_sentinel}
+        end
+      end
+    
       module HarvestExecutionBlock
         private def harvest_execution_block(
           snapshot_index : Int32, 
@@ -168,6 +189,21 @@ module PTY
           end
         
           PTY::ExecutionResult.new(output: clean_output, status: exit_status)
+        end
+      end
+    
+      module LiveFilter
+        # Helper B: Binds the lossless real-time stream pipe hooks
+        private def activate_live_filter(accumulator : String -> Nil)
+          @mutex.synchronize do
+            @active_run_callback = ->(chunk : String) { accumulator.call(chunk) }
+          end
+        end
+        
+        private def deactivate_live_filter
+          @mutex.synchronize do
+            @active_run_callback = nil
+          end
         end
       end
     
@@ -208,35 +244,15 @@ module PTY
       # -------------------------------------------------------------
       
       # Helper A: Generates the boundary walls
-      private def generate_sentinels : Tuple(String, String)
-        timestamp = Time.utc.to_unix_f.to_s.gsub(".", "")
-        rand_id = Random.rand(100..999)
-      
-        start_sentinel = "START_MARK_#{timestamp}_#{rand_id}"
-        end_sentinel   = "END_MARK_#{timestamp}_#{rand_id}"
-        {start_sentinel, end_sentinel}
-      end
+      include GenerateSentinels
       
       # Helper B: Binds the lossless real-time stream pipe hooks
-      private def activate_live_filter(accumulator : String -> Nil)
-        @mutex.synchronize do
-          @active_run_callback = ->(chunk : String) { accumulator.call(chunk) }
-        end
-      end
-      
-      private def deactivate_live_filter
-        @mutex.synchronize do
-          @active_run_callback = nil
-        end
-      end
+      include LiveFilter
       
       # Helper C: Transmits the text sandwich straight down the interactive line
-      private def dispatch_sandwich_commands(command_string : String, start_sentinel : String, end_sentinel : String)
-        write("echo #{start_sentinel}\n")
-        write("#{command_string}\n") unless command_string.empty?
-        write("echo #{end_sentinel}__$?__\n")
-      end
+      include DispatchSandwichCommands
       
+      # Helper D:
       include HarvestExecutionBlock
     end
   
