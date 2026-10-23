@@ -31,17 +31,24 @@ private def spawn_ingestion_loop
       end
     end
     @reader_active.set(false)
+    @ingest_queue.close # ◄─ Signal completion to the consumer layer
   end
 end
 
 private def spawn_distribution_loop
   spawn do
     loop do
-      # Keep processing until ingestion stops and the queue is completely empty
-      break if !@reader_active.get && @ingest_queue.size == 0
-
-      chunk = @ingest_queue.pop
-      process_next_chunk(chunk)
+      begin
+        # pop is guaranteed to return a strict String here, fixing the type error
+        chunk = @ingest_queue.pop
+        process_next_chunk(chunk)
+      rescue ex : PTY::Queue::ClosedError
+        break # Ingestion loop closed and queue is fully drained!
+      ensure
+        @subscribers_mutex.synchronize do
+          @subscribers.each &.push(:session_closed)
+        end
+      end
     end
   end
 end

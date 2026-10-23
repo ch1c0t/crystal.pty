@@ -7,10 +7,18 @@ def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionR
     dispatch_sandwich_commands(command_string, start_sentinel, end_sentinel)
 
     loop do
-      chunk = run_queue.pop
-      captured_text += chunk
-      stream_callback.call(chunk)
-      break if captured_text.includes?(end_sentinel)
+      message = run_queue.pop
+      case message
+      in String
+        captured_text += message
+        stream_callback.call(message)
+        break if captured_text.includes?(end_sentinel)
+      in Symbol
+        case message
+        when :session_closed
+          break
+        end
+      end
     end
   end
 

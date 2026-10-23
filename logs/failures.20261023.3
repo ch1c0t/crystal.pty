@@ -1,0 +1,183 @@
+F.FFFFFF...FFFFFFF.FFFF.F
+
+Failures:
+
+  1) PTY::Session streams output and retains the same complete transcript
+     Failure/Error: result.output.should contain("stream-begin")
+
+       Expected:   ""
+       to include: "stream-begin"
+
+     # spec/session/stream_spec.cr:22
+
+  2) PTY::Session robustly preserves nested single and double quotation marks inside a single interactive session
+     Failure/Error: result_a.output.should contain("double-quotes-inside-single")
+
+       Expected:   "awk 'BEGIN { print \"double-quotes-in"
+       to include: "double-quotes-inside-single"
+
+     # spec/session/quote_escaping_spec.cr:19
+
+  3) PTY::Session changes the dimensions of the existing PTY
+     Failure/Error: session.output.should contain("42 120")
+
+       Expected:   "echo START_MARK_1792779855528_930\r\n" +
+       "/usr/bin/timeout 5 /bin/sh -c 'read proceed; stty size'\r\n" +
+       "echo END_MARK_1792779855528_930__$?__\r\n"
+       to include: "42 120"
+
+     # spec/session/resize_spec.cr:19
+
+  4) PTY::Session starts an interactive shell with the requested terminal dimensions
+     Failure/Error: session.output.should contain("42 120")
+
+       Expected:   "stty size\r\n" + "printf 'interactive-session-ok\\n'\r\n"
+       to include: "42 120"
+
+     # spec/session/interactive_shell_spec.cr:18
+
+  5) PTY::Session accepts a shell name and configures the terminal environment
+     Failure/Error: session.output.should contain("xterm-color configured")
+
+       Expected:   "printf '%s %s\\n' \"$TERM\" \"$PTY_SESSION_TEST\"\r\n"
+       to include: "xterm-color configured"
+
+     # spec/session/interactive_shell_spec.cr:33
+
+  6) PTY::Session starts the shell in the requested working directory
+     Failure/Error: session.output.should contain("/tmp")
+
+       Expected:   "pwd\r\n"
+       to include: "/tmp"
+
+     # spec/session/interactive_shell_spec.cr:45
+
+  7) PTY::Session starts the shell in the requested working directory 2
+     Failure/Error: session.output.should contain("/tmp")
+
+       Expected:   "echo START_MARK_1792779855532_844\r\n" +
+       "pwd\r\n" +
+       "echo END_MARK_1792779855532_844__$?__\r\n"
+       to include: "/tmp"
+
+     # spec/session/interactive_shell_spec.cr:54
+
+  8) PTY::Command keeps stdin attached to a PTY when dimensions are omitted
+     Failure/Error: output.should contain("terminal")
+
+       Expected:   ""
+       to include: "terminal"
+
+     # spec/command/default_terminal_spec.cr:12
+
+  9) PTY::Command connects stdin, stdout and stderr to the PTY
+     Failure/Error: output.should contain("pty-is-a-terminal")
+
+       Expected:   ""
+       to include: "pty-is-a-terminal"
+
+     # spec/command/stdio_tty_spec.cr:12
+
+ 10) PTY::Command does not wait forever for descendants which inherit the PTY
+     Failure/Error: output.should contain("leader-exited")
+
+       Expected:   ""
+       to include: "leader-exited"
+
+     # spec/command/inherited_pty_spec.cr:14
+
+ 11) PTY::Command reports a command terminated by a signal using shell-compatible status
+     Failure/Error: exit_code.should eq(143)
+
+       Expected: 143
+            got: 0
+
+     # spec/command/signal_exit_spec.cr:12
+
+ 12) PTY::Command preserves the tmux.run constructor and streams its terminal output
+     Failure/Error: output.should contain("streamed-pty-output")
+
+       Expected:   ""
+       to include: "streamed-pty-output"
+
+     # spec/command/constructor_compatibility_spec.cr:15
+
+ 13) PTY::Command supports caller-specified terminal dimensions
+     Failure/Error: output.should contain("42 120")
+
+       Expected:   ""
+       to include: "42 120"
+
+     # spec/command/explicit_dimensions_spec.cr:13
+
+ 14) PTY::Command returns 127 when an argv executable cannot be started
+     Failure/Error: exit_code.should eq(127)
+
+       Expected: 127
+            got: 0
+
+     # spec/command/missing_executable_spec.cr:12
+
+ 15) PTY::Command drains output larger than a PTY buffer while the child runs
+     Failure/Error: output.bytesize.should be >= 131_072
+
+       Expected 0 to be GreaterOrEqual 131072
+
+     # spec/command/large_output_spec.cr:16
+
+ 16) PTY::Command returns the shell's real nonzero exit code
+     Failure/Error: output.should contain("before-failure")
+
+       Expected:   ""
+       to include: "before-failure"
+
+     # spec/command/exit_code_spec.cr:12
+
+ 17) PTY offers direct argv execution through PTY.run
+     Failure/Error: output.should contain("direct-argv")
+
+       Expected:   ""
+       to include: "direct-argv"
+
+     # spec/pty_spec.cr:8
+
+ 18) PTY runs a string command with terminal dimensions
+     Failure/Error: output.should contain("direct-string")
+
+       Expected:   ""
+       to include: "direct-string"
+
+     # spec/pty_spec.cr:15
+
+ 19) PTY accepts an existing Session as the second PTY::Command argument
+     Failure/Error: output.should contain("command-api")
+
+       Expected:   ""
+       to include: "command-api"
+
+     # spec/pty_spec.cr:39
+
+Finished in 67.24 milliseconds
+25 examples, 19 failures, 0 errors, 0 pending
+
+Failed examples:
+
+crystal spec spec/session/stream_spec.cr:7 # PTY::Session streams output and retains the same complete transcript
+crystal spec spec/session/quote_escaping_spec.cr:5 # PTY::Session robustly preserves nested single and double quotation marks inside a single interactive session
+crystal spec spec/session/resize_spec.cr:5 # PTY::Session changes the dimensions of the existing PTY
+crystal spec spec/session/interactive_shell_spec.cr:5 # PTY::Session starts an interactive shell with the requested terminal dimensions
+crystal spec spec/session/interactive_shell_spec.cr:24 # PTY::Session accepts a shell name and configures the terminal environment
+crystal spec spec/session/interactive_shell_spec.cr:36 # PTY::Session starts the shell in the requested working directory
+crystal spec spec/session/interactive_shell_spec.cr:48 # PTY::Session starts the shell in the requested working directory 2
+crystal spec spec/command/default_terminal_spec.cr:7 # PTY::Command keeps stdin attached to a PTY when dimensions are omitted
+crystal spec spec/command/stdio_tty_spec.cr:7 # PTY::Command connects stdin, stdout and stderr to the PTY
+crystal spec spec/command/inherited_pty_spec.cr:7 # PTY::Command does not wait forever for descendants which inherit the PTY
+crystal spec spec/command/signal_exit_spec.cr:7 # PTY::Command reports a command terminated by a signal using shell-compatible status
+crystal spec spec/command/constructor_compatibility_spec.cr:7 # PTY::Command preserves the tmux.run constructor and streams its terminal output
+crystal spec spec/command/explicit_dimensions_spec.cr:7 # PTY::Command supports caller-specified terminal dimensions
+crystal spec spec/command/missing_executable_spec.cr:7 # PTY::Command returns 127 when an argv executable cannot be started
+crystal spec spec/command/large_output_spec.cr:7 # PTY::Command drains output larger than a PTY buffer while the child runs
+crystal spec spec/command/exit_code_spec.cr:7 # PTY::Command returns the shell's real nonzero exit code
+crystal spec spec/pty_spec.cr:5 # PTY offers direct argv execution through PTY.run
+crystal spec spec/pty_spec.cr:12 # PTY runs a string command with terminal dimensions
+crystal spec spec/pty_spec.cr:31 # PTY accepts an existing Session as the second PTY::Command argument

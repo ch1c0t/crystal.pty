@@ -20,7 +20,7 @@ end
 @reader_active : Atomic(Bool)
 @active_run_callback : (String -> Nil)? = nil
 
-@subscribers : Set(PTY::Queue(String))
+@subscribers : Set(PTY::Queue(String | Symbol))
 @subscribers_mutex : Sync::Mutex
 
 include Initialize

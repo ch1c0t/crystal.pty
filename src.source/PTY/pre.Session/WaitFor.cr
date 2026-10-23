@@ -20,8 +20,16 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds) : String
 
       # 3. Block-pop the next available text chunk out of the concurrent queue
       # This cleanly suspends the current fiber without locking execution threads
-      chunk = queue.pop
-      local_buffer += chunk
+      message = queue.pop
+      case message
+      in String
+        local_buffer += message
+      in Symbol
+        case message
+        when :session_closed
+          break
+        end
+      end
 
       # 4. Perform the boundary scan against the rolling localized context window
       if local_buffer.includes?(target)

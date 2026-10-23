@@ -45,10 +45,24 @@ module PTY
   end
 
   class Queue(T)
+    class ClosedError < Exception; end
+    
     def initialize
       @deque = Deque(T).new
       @mutex = Sync::Mutex.new
       @cond = Sync::ConditionVariable.new(@mutex)
+      @closed = false
+    end
+    
+    def closed? : Bool
+      @mutex.synchronize { @closed }
+    end
+    
+    def close
+      @mutex.synchronize do
+        @closed = true
+        @cond.broadcast # Wake up any waiting pops to let them see closure
+      end
     end
     
     # Ruby's Queue#push (never blocks, wakes up waiting pops)
@@ -63,7 +77,6 @@ module PTY
     def pop : T
       @mutex.synchronize do
         while @deque.empty?
-          # https://crystal-lang.org/api/master/Sync/ConditionVariable.html
           @cond.wait # Temporarily releases mutex and suspends fiber
         end
         @deque.shift # FIFO extraction
@@ -91,6 +104,9 @@ module PTY
   end
 
   extend Run
+  
+  # Multiplexes standard stdout/stderr data strings with out-of-band life-changing events
+  alias StreamMessage = String | Symbol
 
   class Command
     module Initialize
@@ -142,8 +158,8 @@ module PTY
   class Session
     module AddQueue
       # Registers a private queue, yields it to the caller, and guarantees cleanup
-      private def add_queue(&block : PTY::Queue(String) -> Nil) : Int32
-        my_queue = PTY::Queue(String).new
+      private def add_queue(&block : PTY::Queue(PTY::StreamMessage) -> T) : Int32 forall T
+        my_queue = PTY::Queue(PTY::StreamMessage).new
         snapshot_size = 0
       
         @subscribers_mutex.synchronize do
@@ -173,7 +189,7 @@ module PTY
       )
         @started = Atomic(Bool).new(false)
         @ingest_queue = PTY::Queue(String).new
-        @subscribers = Set(PTY::Queue(String)).new
+        @subscribers = Set(PTY::Queue(String | Symbol)).new
         @subscribers_mutex = Sync::Mutex.new
       
         # Securely box the initial empty string state into a raw atomic pointer reference
@@ -192,7 +208,7 @@ module PTY
       )
         @started = Atomic(Bool).new(false)
         @ingest_queue = PTY::Queue(String).new
-        @subscribers = Set(PTY::Queue(String)).new
+        @subscribers = Set(PTY::Queue(String | Symbol)).new
         @subscribers_mutex = Sync::Mutex.new
       
         # Securely box the initial empty string state into a raw atomic pointer reference
@@ -340,10 +356,18 @@ module PTY
           dispatch_sandwich_commands(command_string, start_sentinel, end_sentinel)
       
           loop do
-            chunk = run_queue.pop
-            captured_text += chunk
-            stream_callback.call(chunk)
-            break if captured_text.includes?(end_sentinel)
+            message = run_queue.pop
+            case message
+            in String
+              captured_text += message
+              stream_callback.call(message)
+              break if captured_text.includes?(end_sentinel)
+            in Symbol
+              case message
+              when :session_closed
+                break
+              end
+            end
           end
         end
       
@@ -403,17 +427,24 @@ module PTY
               end
             end
             @reader_active.set(false)
+            @ingest_queue.close # ◄─ Signal completion to the consumer layer
           end
         end
         
         private def spawn_distribution_loop
           spawn do
             loop do
-              # Keep processing until ingestion stops and the queue is completely empty
-              break if !@reader_active.get && @ingest_queue.size == 0
-        
-              chunk = @ingest_queue.pop
-              process_next_chunk(chunk)
+              begin
+                # pop is guaranteed to return a strict String here, fixing the type error
+                chunk = @ingest_queue.pop
+                process_next_chunk(chunk)
+              rescue ex : PTY::Queue::ClosedError
+                break # Ingestion loop closed and queue is fully drained!
+              ensure
+                @subscribers_mutex.synchronize do
+                  @subscribers.each &.push(:session_closed)
+                end
+              end
             end
           end
         end
@@ -619,8 +650,16 @@ module PTY
       
             # 3. Block-pop the next available text chunk out of the concurrent queue
             # This cleanly suspends the current fiber without locking execution threads
-            chunk = queue.pop
-            local_buffer += chunk
+            message = queue.pop
+            case message
+            in String
+              local_buffer += message
+            in Symbol
+              case message
+              when :session_closed
+                break
+              end
+            end
       
             # 4. Perform the boundary scan against the rolling localized context window
             if local_buffer.includes?(target)
@@ -667,7 +706,7 @@ module PTY
     @reader_active : Atomic(Bool)
     @active_run_callback : (String -> Nil)? = nil
     
-    @subscribers : Set(PTY::Queue(String))
+    @subscribers : Set(PTY::Queue(String | Symbol))
     @subscribers_mutex : Sync::Mutex
     
     include Initialize
