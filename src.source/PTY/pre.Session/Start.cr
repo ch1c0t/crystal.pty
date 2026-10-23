@@ -19,6 +19,7 @@ def start : self
   else
     # INSIDE PARENT
     initialize_parent_proxy(pid, slave_fd, master_fd)
+    wait_for("$ ") rescue nil
   end
   self
 end

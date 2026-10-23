@@ -1,0 +1,109 @@
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "stty size\r\n", bytes: 11}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "stty size\r\n", current_subscribers: 1}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "$ ", bytes: 2}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "$ ", current_subscribers: 1}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "42 120\r\n", bytes: 8}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "42 120\r\n", current_subscribers: 1}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "printf 'interactive-session-ok\\n'\r\n", bytes: 35}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "printf 'interactive-session-ok\\n'\r\n", current_subscribers: 1}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "$ interactive-session-ok\r\n$ ", bytes: 28}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "$ interactive-session-ok\r\n$ ", current_subscribers: 0}
+."in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "printf '%s %s\\n' \"$TERM\" \"$PTY_SESSION_TEST\"\r\n", bytes: 46}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "printf '%s %s\\n' \"$TERM\" \"$PTY_SESSION_TEST\"\r\n", current_subscribers: 1}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "$ ", bytes: 2}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "xterm-color configured\r\n$ ", bytes: 26}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "$ ", current_subscribers: 1}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "xterm-color configured\r\n$ ", current_subscribers: 1}
+."in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "pwd\r\n", bytes: 5}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "pwd\r\n", current_subscribers: 1}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "$ /tmp\r\n$ ", bytes: 10}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "$ /tmp\r\n$ ", current_subscribers: 1}
+."in #run"
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "echo START_MARK_1792784313197_641\r\npwd\r\necho END_MARK_1792784313197_641__$?__\r\n", bytes: 79}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "echo START_MARK_1792784313197_641\r\npwd\r\necho END_MARK_1792784313197_641__$?__\r\n", current_subscribers: 1}
+{run_pop_string: message} # => {run_pop_string: "echo START_MARK_1792784313197_641\r\npwd\r\necho END_MARK_1792784313197_641__$?__\r\n"}
+F"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "$ START_MARK_1792784313197_641\r\n$ ", bytes: 34}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "/tmp\r\n$ END_MARK_1792784313197_641__0__\r\n$ ", bytes: 43}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "$ START_MARK_1792784313197_641\r\n$ ", current_subscribers: 0}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "/tmp\r\n$ END_MARK_1792784313197_641__0__\r\n$ ", current_subscribers: 0}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "$ ", bytes: 2}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "$ ", current_subscribers: 1}
+"in #run"
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "echo START_", bytes: 11}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "MARK_1792784313200_776\r\npwd\r\n", bytes: 29}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "echo END_MARK_179", bytes: 17}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "2784313200_776__$?__\r\n", bytes: 22}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "START_MARK_1792784313200_776\r\n$ ", bytes: 32}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "/tmp\r\n$ ", bytes: 8}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "END_MARK_1792784313200_776__0__\r\n$ ", bytes: 35}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "echo START_", current_subscribers: 1}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "MARK_1792784313200_776\r\npwd\r\n", current_subscribers: 1}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "echo END_MARK_179", current_subscribers: 1}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "2784313200_776__$?__\r\n", current_subscribers: 1}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "START_MARK_1792784313200_776\r\n$ ", current_subscribers: 1}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "/tmp\r\n$ ", current_subscribers: 1}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "END_MARK_1792784313200_776__0__\r\n$ ", current_subscribers: 1}
+{run_pop_string: message} # => {run_pop_string: "echo START_"}
+{run_pop_event: message} # => {run_pop_event: :session_closed}
+.
+
+Failures:
+
+  1) PTY::Session starts the shell in the requested working directory 2
+     Failure/Error: session.output.should contain("/tmp")
+
+       Expected:   "echo START_MARK_1792784313197_641\r\n" +
+       "pwd\r\n" +
+       "echo END_MARK_1792784313197_641__$?__\r\n"
+       to include: "/tmp"
+
+     # spec/session/interactive_shell_spec.cr:54
+
+Finished in 9.27 milliseconds
+5 examples, 1 failures, 0 errors, 0 pending
+
+Failed examples:
+
+crystal spec spec/session/interactive_shell_spec.cr:48 # PTY::Session starts the shell in the requested working directory 2

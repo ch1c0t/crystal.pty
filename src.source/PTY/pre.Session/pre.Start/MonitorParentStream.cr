@@ -23,7 +23,10 @@ private def spawn_ingestion_loop
         break if bytes_read == 0
 
         # Move the data instantly into our thread-safe queue
-        @ingest_queue.push(String.new(io_buffer[0, bytes_read]))
+        chunk = String.new(io_buffer[0, bytes_read])
+        p "in #spawn_ingestion_loop"
+        p!({ingestion_chunk: chunk, bytes: bytes_read})
+        @ingest_queue.push(chunk)
       rescue ex : IO::Error
         # Handle non-blocking retry signs gracefully
         next if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
@@ -59,6 +62,8 @@ private def process_next_chunk(chunk : String)
 
   # Broadcast a copy of the chunk to every active listener queue safely
   @subscribers_mutex.synchronize do
+    p "in #process_next_chunk"
+    p!({distributing_chunk: chunk, current_subscribers: @subscribers.size})
     @subscribers.each &.push(chunk)
   end
 end

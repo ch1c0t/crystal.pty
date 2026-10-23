@@ -7,10 +7,6 @@ describe PTY::Session do
     session = PTY::Session.new("/bin/sh")
     session.start
 
-    # STABILIZATION: Wait for the shell to print its first prompt character
-    # to guarantee the subshell is fully booted and ready for inputs!
-    session.wait_for("$ ") rescue nil
-
     # 2. Test Case A: Complex nested double quotes inside single quotes (common AWK syntax)
     awk_command = "awk 'BEGIN { print \"double-quotes-inside-single\" }'"
     result_a = session.run(awk_command)

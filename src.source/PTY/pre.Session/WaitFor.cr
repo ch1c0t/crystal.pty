@@ -24,16 +24,15 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds) : String
       case message
       in String
         local_buffer += message
-      in Symbol
-        case message
-        when :session_closed
+        # 4. Perform the boundary scan against the rolling localized context window
+        if local_buffer.includes?(target)
           break
         end
-      end
-
-      # 4. Perform the boundary scan against the rolling localized context window
-      if local_buffer.includes?(target)
-        break
+      in Symbol
+        case message
+        when :session_closed && queue.size == 0
+          break
+        end
       end
     end
   end

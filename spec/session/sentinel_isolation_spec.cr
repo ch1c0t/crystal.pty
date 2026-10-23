@@ -6,7 +6,6 @@ describe PTY::Session do
     # 1. Boot up a vanilla interactive shell session
     session = PTY::Session.new("/bin/sh")
     session.start
-    session.wait_for("$ ") rescue nil
 
     # 2. Run a clean text echo command
     result = session.run("echo 'verify-clean-transcript'")

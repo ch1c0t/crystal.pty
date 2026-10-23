@@ -1,0 +1,75 @@
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "stty size\r\n", bytes: 11}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "stty size\r\n", current_subscribers: 1}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "printf 'interactive-session-ok\\n'\r\n", bytes: 35}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "printf 'interactive-session-ok\\n'\r\n", current_subscribers: 1}
+F"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "printf '%s %s\\n' \"$TERM\" \"$PTY_SESSION_TEST\"\r\n", bytes: 46}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "printf '%s %s\\n' \"$TERM\" \"$PTY_SESSION_TEST\"\r\n", current_subscribers: 1}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "$ ", bytes: 2}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "$ ", current_subscribers: 0}
+F"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "pwd\r\n", bytes: 5}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "pwd\r\n", current_subscribers: 1}
+F"in #run"
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "echo START_MARK_1792781249867_544\r\npwd\r\necho END_MARK_1792781249867_544__$?__\r\n", bytes: 79}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "echo START_MARK_1792781249867_544\r\npwd\r\necho END_MARK_1792781249867_544__$?__\r\n", current_subscribers: 1}
+{run_pop_string: message} # => {run_pop_string: "echo START_MARK_1792781249867_544\r\npwd\r\necho END_MARK_1792781249867_544__$?__\r\n"}
+F"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "42 120\r\n$ interactive-session-ok\r\n$ ", bytes: 36}
+
+
+Failures:
+
+  1) PTY::Session starts an interactive shell with the requested terminal dimensions
+     Failure/Error: session.output.should contain("42 120")
+
+       Expected:   "stty size\r\n" + "printf 'interactive-session-ok\\n'\r\n"
+       to include: "42 120"
+
+     # spec/session/interactive_shell_spec.cr:18
+
+  2) PTY::Session accepts a shell name and configures the terminal environment
+     Failure/Error: session.output.should contain("xterm-color configured")
+
+       Expected:   "printf '%s %s\\n' \"$TERM\" \"$PTY_SESSION_TEST\"\r\n"
+       to include: "xterm-color configured"
+
+     # spec/session/interactive_shell_spec.cr:33
+
+  3) PTY::Session starts the shell in the requested working directory
+     Failure/Error: session.output.should contain("/tmp")
+
+       Expected:   "pwd\r\n"
+       to include: "/tmp"
+
+     # spec/session/interactive_shell_spec.cr:45
+
+  4) PTY::Session starts the shell in the requested working directory 2
+     Failure/Error: session.output.should contain("/tmp")
+
+       Expected:   "echo START_MARK_1792781249867_544\r\n" +
+       "pwd\r\n" +
+       "echo END_MARK_1792781249867_544__$?__\r\n"
+       to include: "/tmp"
+
+     # spec/session/interactive_shell_spec.cr:54
+
+Finished in 3.34 milliseconds
+4 examples, 4 failures, 0 errors, 0 pending
+
+Failed examples:
+
+crystal spec spec/session/interactive_shell_spec.cr:5 # PTY::Session starts an interactive shell with the requested terminal dimensions
+crystal spec spec/session/interactive_shell_spec.cr:24 # PTY::Session accepts a shell name and configures the terminal environment
+crystal spec spec/session/interactive_shell_spec.cr:36 # PTY::Session starts the shell in the requested working directory
+crystal spec spec/session/interactive_shell_spec.cr:48 # PTY::Session starts the shell in the requested working directory 2

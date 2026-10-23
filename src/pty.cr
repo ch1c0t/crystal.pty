@@ -355,14 +355,23 @@ module PTY
         initial_snapshot_size = add_queue do |run_queue|
           dispatch_sandwich_commands(command_string, start_sentinel, end_sentinel)
       
+          p "in #run"
           loop do
             message = run_queue.pop
             case message
             in String
+              p!({run_pop_string: message})
               captured_text += message
               stream_callback.call(message)
-              break if captured_text.includes?(end_sentinel)
+      
+              if captured_text.includes?(start_sentinel) && captured_text.includes?(end_sentinel)
+                # Make sure the end_sentinel index comes after the start_sentinel index
+                if captured_text.index(end_sentinel).not_nil! > captured_text.index(start_sentinel).not_nil!
+                  break
+                end
+              end
             in Symbol
+              p!({run_pop_event: message})
               case message
               when :session_closed
                 break
@@ -419,7 +428,10 @@ module PTY
                 break if bytes_read == 0
         
                 # Move the data instantly into our thread-safe queue
-                @ingest_queue.push(String.new(io_buffer[0, bytes_read]))
+                chunk = String.new(io_buffer[0, bytes_read])
+                p "in #spawn_ingestion_loop"
+                p!({ingestion_chunk: chunk, bytes: bytes_read})
+                @ingest_queue.push(chunk)
               rescue ex : IO::Error
                 # Handle non-blocking retry signs gracefully
                 next if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
@@ -455,6 +467,8 @@ module PTY
         
           # Broadcast a copy of the chunk to every active listener queue safely
           @subscribers_mutex.synchronize do
+            p "in #process_next_chunk"
+            p!({distributing_chunk: chunk, current_subscribers: @subscribers.size})
             @subscribers.each &.push(chunk)
           end
         end
@@ -583,6 +597,7 @@ module PTY
         else
           # INSIDE PARENT
           initialize_parent_proxy(pid, slave_fd, master_fd)
+          wait_for("$ ") rescue nil
         end
         self
       end
@@ -654,16 +669,15 @@ module PTY
             case message
             in String
               local_buffer += message
-            in Symbol
-              case message
-              when :session_closed
+              # 4. Perform the boundary scan against the rolling localized context window
+              if local_buffer.includes?(target)
                 break
               end
-            end
-      
-            # 4. Perform the boundary scan against the rolling localized context window
-            if local_buffer.includes?(target)
-              break
+            in Symbol
+              case message
+              when :session_closed && queue.size == 0
+                break
+              end
             end
           end
         end
