@@ -7,11 +7,11 @@ private def harvest_execution_block(
   captured_text : String
 ) : PTY::ExecutionResult
 
-  command_transcript = @output[snapshot_index..-1]
-  
+  command_transcript = output[snapshot_index..-1]
+
   # Step 1: Extract status
   exit_status = extract_exit_code(command_transcript, end_sentinel)
-  
+
   # Step 2: Line-by-line infrastructure filtering
   clean_output = filter_infrastructure_lines(command_transcript, command_string, start_sentinel, end_sentinel)
 

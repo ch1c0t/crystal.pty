@@ -2,6 +2,24 @@ require "sync/mutex"
 require "sync/condition_variable"
 
 module PTY
+  class Box(T)
+    # Core helper class to bridge heap allocations across raw pointers
+    def initialize(@value : T)
+    end
+    
+    def value : T
+      @value
+    end
+    
+    def self.box(value : T) : Pointer(Void)
+      new(value).as(Pointer(Void))
+    end
+    
+    def self.unbox(pointer : Pointer(Void)) : T
+      pointer.as(Box(T)).value
+    end
+  end
+
   lib C
     struct WinSize
       ws_row : UInt16
@@ -27,11 +45,10 @@ module PTY
   end
 
   class Queue(T)
-    # https://share.google/aimode/D2lpUVd2CmUbAwhDg
     def initialize
       @deque = Deque(T).new
       @mutex = Sync::Mutex.new
-      @cond = Sync::ConditionVariable.new
+      @cond = Sync::ConditionVariable.new(@mutex)
     end
     
     # Ruby's Queue#push (never blocks, wakes up waiting pops)
@@ -46,7 +63,8 @@ module PTY
     def pop : T
       @mutex.synchronize do
         while @deque.empty?
-          @cond.wait(@mutex) # Temporarily releases mutex and suspends fiber
+          # https://crystal-lang.org/api/master/Sync/ConditionVariable.html
+          @cond.wait # Temporarily releases mutex and suspends fiber
         end
         @deque.shift # FIFO extraction
       end
@@ -122,14 +140,24 @@ module PTY
   end
 
   class Session
-    module Execute
-      # Backward compatibility adapter for one-shot block commands (Command class)
-      def execute(command_string : String, stream_callback : (String -> Nil)?)
-        if callback = stream_callback
-          run(command_string) { |chunk| callback.call(chunk) }
-        else
-          run(command_string)
+    module AddQueue
+      # Registers a private queue, yields it to the caller, and guarantees cleanup
+      private def add_queue(&block : PTY::Queue(String) -> Nil) : Int32
+        my_queue = PTY::Queue(String).new
+        snapshot_size = 0
+      
+        @subscribers_mutex.synchronize do
+          @subscribers.add(my_queue)
+          snapshot_size = output.bytesize # <- Safely captured inside the exact same lock!
         end
+      
+        begin
+          yield my_queue
+        ensure
+          @subscribers_mutex.synchronize { @subscribers.delete(my_queue) }
+        end
+      
+        snapshot_size
       end
     end
   
@@ -143,9 +171,14 @@ module PTY
         @env : Hash(String, String)? = nil,
         @cwd : String? = nil
       )
-        @mutex = Sync::Mutex.new
-        @cond = Sync::ConditionVariable.new(@mutex)
         @started = Atomic(Bool).new(false)
+        @ingest_queue = PTY::Queue(String).new
+        @subscribers = Set(PTY::Queue(String)).new
+        @subscribers_mutex = Sync::Mutex.new
+      
+        # Securely box the initial empty string state into a raw atomic pointer reference
+        @output_ptr = Atomic(Pointer(Void)).new(Box(String).box(""))
+        @reader_active = Atomic(Bool).new(false)
       end
       
       def initialize(
@@ -157,9 +190,14 @@ module PTY
         @env : Hash(String, String)? = nil,
         @cwd : String? = nil
       )
-        @mutex = Sync::Mutex.new
-        @cond = Sync::ConditionVariable.new(@mutex)
         @started = Atomic(Bool).new(false)
+        @ingest_queue = PTY::Queue(String).new
+        @subscribers = Set(PTY::Queue(String)).new
+        @subscribers_mutex = Sync::Mutex.new
+      
+        # Securely box the initial empty string state into a raw atomic pointer reference
+        @output_ptr = Atomic(Pointer(Void)).new(Box(String).box(""))
+        @reader_active = Atomic(Bool).new(false)
       end
     end
   
@@ -272,11 +310,11 @@ module PTY
           captured_text : String
         ) : PTY::ExecutionResult
         
-          command_transcript = @output[snapshot_index..-1]
-          
+          command_transcript = output[snapshot_index..-1]
+        
           # Step 1: Extract status
           exit_status = extract_exit_code(command_transcript, end_sentinel)
-          
+        
           # Step 2: Line-by-line infrastructure filtering
           clean_output = filter_infrastructure_lines(command_transcript, command_string, start_sentinel, end_sentinel)
         
@@ -293,39 +331,24 @@ module PTY
         include FallbackCleanText
       end
     
-      module LiveFilter
-        # Helper B: Binds the lossless real-time stream pipe hooks
-        private def activate_live_filter(accumulator : String -> Nil)
-          @mutex.synchronize do
-            @active_run_callback = ->(chunk : String) { accumulator.call(chunk) }
-          end
-        end
-        
-        private def deactivate_live_filter
-          @mutex.synchronize do
-            @active_run_callback = nil
-          end
-        end
-      end
-    
       # Streams execution chunks interactively in real time down an open session pipeline
       def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionResult
-        initial_snapshot_size = @output.bytesize
         start_sentinel, end_sentinel = generate_sentinels
         captured_text = ""
       
-        # Phase 1: Setup live real-time routing listener
-        activate_live_filter(->(chunk : String) {
-          captured_text += chunk
-          stream_callback.call(chunk)
-        })
+        initial_snapshot_size = add_queue do |run_queue|
+          dispatch_sandwich_commands(command_string, start_sentinel, end_sentinel)
       
-        # Phase 2: Dispatch wrapped terminal commands and block until done
-        dispatch_sandwich_commands(command_string, start_sentinel, end_sentinel)
-        wait_for(end_sentinel)
-        deactivate_live_filter
+          loop do
+            chunk = run_queue.pop
+            captured_text += chunk
+            stream_callback.call(chunk)
+            break if captured_text.includes?(end_sentinel)
+          end
+        end
       
-        # Phase 3: Extract clean results out of the sandboxed boundaries
+      
+        # Extract clean results out of the sandboxed boundaries
         harvest_execution_block(
           initial_snapshot_size, 
           command_string, 
@@ -340,95 +363,85 @@ module PTY
         run(command_string) { |_chunk| }
       end
       
-      # -------------------------------------------------------------
-      # The 4 Easy-To-Remember Private Helpers
-      # -------------------------------------------------------------
-      
-      # Helper A: Generates the boundary walls
       include GenerateSentinels
-      
-      # Helper B: Binds the lossless real-time stream pipe hooks
-      include LiveFilter
-      
-      # Helper C: Transmits the text sandwich straight down the interactive line
       include DispatchSandwichCommands
-      
-      # Helper D:
       include HarvestExecutionBlock
     end
   
     module Start
       module MonitorParentStream
         private def monitor_parent_stream(master_fd : Int32)
+          setup_io_handles(master_fd)
+          spawn_ingestion_loop
+          spawn_distribution_loop
+        end
+        
+        private def setup_io_handles(master_fd : Int32)
           master_io = IO::FileDescriptor.new(master_fd, close_on_finalize: true)
           IO::FileDescriptor.set_blocking(master_fd, false)
           @master_io = master_io
+          @reader_active.set(true)
+        end
         
-          @reader_active = true
-        
+        private def spawn_ingestion_loop
           spawn do
             io_buffer = Bytes.new(65536)
+            master_io = @master_io.not_nil!
         
-            # FIX WORKAROUND FOR CRYSTAL BUG #15011:
-            # Explicitly declare ALL loop-accessed variables here to anchor their scope
-            # before entering the nested while/begin/rescue block structure.
-            bytes_read = 0
-            chunk = ""
-            proc = @process
-            active_cmd_hook = @active_run_callback
-        
-            while !master_io.closed?
+            loop do
+              break if master_io.closed?
               begin
                 bytes_read = master_io.read(io_buffer)
                 break if bytes_read == 0
         
-                chunk = String.new(io_buffer[0, bytes_read])
-        
-                @mutex.synchronize do
-                  @output += chunk
-        
-                  # Fetch the callback pointer safely using our pre-declared variable frame
-                  active_cmd_hook = @active_run_callback
-                  if active_cmd_hook
-                    begin
-                      active_cmd_hook.call(chunk)
-                    rescue ex : Exception
-                      # FIX WORKAROUND FOR BUG #15011:
-                      # Use a dedicated method call to force proper instance-level 
-                      # assignment, breaking out of the shadowed compiler loop bug.
-                      set_exception(ex)
-        
-                      master_io.close rescue nil
-        
-                      proc = @process
-                      Process.signal(Signal::KILL, proc.pid) if proc rescue nil
-                      @reader_active = false
-                      @cond.broadcast
-                      break
-                    end
-                  end
-        
-                  @cond.broadcast 
-                end
+                # Move the data instantly into our thread-safe queue
+                @ingest_queue.push(String.new(io_buffer[0, bytes_read]))
               rescue ex : IO::Error
-                if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
-                  sleep(1.millisecond)
-                  next
-                else
-                  break
-                end
+                # Handle non-blocking retry signs gracefully
+                next if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
+                break
               end
             end
+            @reader_active.set(false)
+          end
+        end
         
-            @mutex.synchronize do
-              @reader_active = false
-              @cond.broadcast
+        private def spawn_distribution_loop
+          spawn do
+            loop do
+              # Keep processing until ingestion stops and the queue is completely empty
+              break if !@reader_active.get && @ingest_queue.size == 0
+        
+              chunk = @ingest_queue.pop
+              process_next_chunk(chunk)
             end
           end
         end
         
-        private def set_exception(ex : Exception)
-          @exception = ex
+        private def process_next_chunk(chunk : String)
+          # 1. Update the inherently thread-safe atomic pointer log
+          update_history_snapshot(chunk)
+        
+          # Broadcast a copy of the chunk to every active listener queue safely
+          @subscribers_mutex.synchronize do
+            @subscribers.each &.push(chunk)
+          end
+        end
+        
+        private def update_history_snapshot(chunk : String)
+          loop do
+            old_ptr = @output_ptr.get
+            current_string = Box(String).unbox(old_ptr)
+        
+            # Combine into a new immutable string allocation
+            new_string = current_string + chunk
+            new_ptr = Box(String).box(new_string)
+        
+            # Perform the lockless atomic swap
+            if @output_ptr.compare_and_set(old_ptr, new_ptr)
+              break
+            end
+          end
         end
       end
     
@@ -583,96 +596,40 @@ module PTY
       end
     end
   
-    module Wait
-      # Blocks the main execution thread cleanly until the process finishes running
-      def wait : Int32
-        if process = @process
-          # Wait for the OS status to toggle natively
-          status = process.wait
-          cleanup_streams
-      
-          # Block efficiently until the reader loop finishes flushing remaining buffers
-          @mutex.synchronize do
-            while @reader_active
-              @cond.wait
-            end
-      
-            # Propagate asynchronous callback errors safely if caught
-            if ex = @exception
-              @exception = nil
-              raise ex
-            end
-          end
-      
-          status.exit_code
-        else
-          raise "Session context missing: process has not been started yet."
-        end
-      end
-    end
-  
     module WaitFor
       class TimeoutError < Exception
       end
       
-      # Blocks cleanly and ensures no background fiber broadcasts are ever missed
-      def wait_for(target : String, timeout : Time::Span = 2.seconds)
-        start_time = Time.instant 
+      # Blocks cleanly using message passing; immune to split-buffer fragmentation
+      def wait_for(target : String, timeout : Time::Span = 2.seconds) : String
+        start_time = Time.instant
+        local_buffer = ""
       
-        @mutex.synchronize do
-          # 1. Loop continuously until the string manifests or time runs out
-          while !@output.includes?(target)
+        add_queue do |queue|
+          loop do
+            # 1. Enforce strict timeout thresholds
             if start_time.elapsed > timeout
               raise TimeoutError.new("Timed out waiting for '#{target}'")
             end
       
-            # Instantly raise the callback error if one was registered in the background
-            if ex = @exception
-              @exception = nil
-              raise ex
-            end
-      
-            # FIXED CONCURRENCY CHECK: If the background reader fiber has completely 
-            # shut down, the pipeline is closed. Break immediately to prevent hangs!
-            unless @reader_active
+            # 2. Check for unexpected upstream pipe closures
+            if !@reader_active.get && queue.size == 0
               break
             end
       
-            # 2. Release the mutex lock briefly to let the background reader fiber 
-            # write text chunks, and sleep for a tiny slice to yield priority.
-            @mutex.unlock
-            begin
-              sleep(5.milliseconds)
-            ensure
-              # 3. Automatically re-acquire the lock safely before checking the loop condition again
-              @mutex.lock
-            end
-          end
-          
-          # =======================================================================
-          # THE ABSOLUTE GATE CHECK (FIXES THE BYPASS RACE CONDITION)
-          # =======================================================================
-          # If the loop exited because the target was found, but the background fiber 
-          # encountered a callback exception on that exact chunk step, we must 
-          # prioritize raising the error over a clean return!
-          if ex = @exception
-            @exception = nil
-            raise ex
-          end
+            # 3. Block-pop the next available text chunk out of the concurrent queue
+            # This cleanly suspends the current fiber without locking execution threads
+            chunk = queue.pop
+            local_buffer += chunk
       
-          # 4. Give the reader loop one final tiny slice to let closely trailing characters settle
-          # Give the background loop extra dedicated microsecond slices to finish
-          # draining high-velocity buffers completely before we return control!
-          3.times do
-            @mutex.unlock
-            begin
-              Fiber.yield
-              sleep(1.millisecond)
-            ensure
-              @mutex.lock
+            # 4. Perform the boundary scan against the rolling localized context window
+            if local_buffer.includes?(target)
+              break
             end
           end
         end
+      
+        local_buffer
       end
     end
   
@@ -690,7 +647,14 @@ module PTY
   
     property rows : Int32
     property columns : Int32
-    getter output : String = ""
+    
+    # Holds a raw pointer to the current immutable String heap object
+    @output_ptr : Atomic(Pointer(Void))
+    
+    # Inherently thread-safe: Reads the atomic memory barrier instantly without a mutex
+    def output : String
+      Box(String).unbox(@output_ptr.get)
+    end
     
     @shell : String
     @name : String?
@@ -700,20 +664,19 @@ module PTY
     @process : Process?
     @master_io : IO::FileDescriptor?
     @exception : Exception? = nil
-    @reader_active = true
-    
-    @mutex : Sync::Mutex
-    @cond : Sync::ConditionVariable
+    @reader_active : Atomic(Bool)
     @active_run_callback : (String -> Nil)? = nil
     
+    @subscribers : Set(PTY::Queue(String))
+    @subscribers_mutex : Sync::Mutex
+    
     include Initialize
-    include Run
     include Start
-    include Execute
-    include Wait
+    include Run
+    include AddQueue
     include WaitFor
-    include Terminate
     include Write
     include Resize
+    include Terminate
   end
 end

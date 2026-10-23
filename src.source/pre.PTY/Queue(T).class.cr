@@ -1,7 +1,7 @@
 def initialize
   @deque = Deque(T).new
   @mutex = Sync::Mutex.new
-  @cond = Sync::ConditionVariable.new
+  @cond = Sync::ConditionVariable.new(@mutex)
 end
 
 # Ruby's Queue#push (never blocks, wakes up waiting pops)
@@ -16,7 +16,8 @@ end
 def pop : T
   @mutex.synchronize do
     while @deque.empty?
-      @cond.wait(@mutex) # Temporarily releases mutex and suspends fiber
+      # https://crystal-lang.org/api/master/Sync/ConditionVariable.html
+      @cond.wait # Temporarily releases mutex and suspends fiber
     end
     @deque.shift # FIFO extraction
   end

@@ -1,62 +1,34 @@
 class TimeoutError < Exception
 end
 
-# Blocks cleanly and ensures no background fiber broadcasts are ever missed
-def wait_for(target : String, timeout : Time::Span = 2.seconds)
-  start_time = Time.instant 
+# Blocks cleanly using message passing; immune to split-buffer fragmentation
+def wait_for(target : String, timeout : Time::Span = 2.seconds) : String
+  start_time = Time.instant
+  local_buffer = ""
 
-  @mutex.synchronize do
-    # 1. Loop continuously until the string manifests or time runs out
-    while !@output.includes?(target)
+  add_queue do |queue|
+    loop do
+      # 1. Enforce strict timeout thresholds
       if start_time.elapsed > timeout
         raise TimeoutError.new("Timed out waiting for '#{target}'")
       end
 
-      # Instantly raise the callback error if one was registered in the background
-      if ex = @exception
-        @exception = nil
-        raise ex
-      end
-
-      # FIXED CONCURRENCY CHECK: If the background reader fiber has completely 
-      # shut down, the pipeline is closed. Break immediately to prevent hangs!
-      unless @reader_active
+      # 2. Check for unexpected upstream pipe closures
+      if !@reader_active.get && queue.size == 0
         break
       end
 
-      # 2. Release the mutex lock briefly to let the background reader fiber 
-      # write text chunks, and sleep for a tiny slice to yield priority.
-      @mutex.unlock
-      begin
-        sleep(5.milliseconds)
-      ensure
-        # 3. Automatically re-acquire the lock safely before checking the loop condition again
-        @mutex.lock
-      end
-    end
-    
-    # =======================================================================
-    # THE ABSOLUTE GATE CHECK (FIXES THE BYPASS RACE CONDITION)
-    # =======================================================================
-    # If the loop exited because the target was found, but the background fiber 
-    # encountered a callback exception on that exact chunk step, we must 
-    # prioritize raising the error over a clean return!
-    if ex = @exception
-      @exception = nil
-      raise ex
-    end
+      # 3. Block-pop the next available text chunk out of the concurrent queue
+      # This cleanly suspends the current fiber without locking execution threads
+      chunk = queue.pop
+      local_buffer += chunk
 
-    # 4. Give the reader loop one final tiny slice to let closely trailing characters settle
-    # Give the background loop extra dedicated microsecond slices to finish
-    # draining high-velocity buffers completely before we return control!
-    3.times do
-      @mutex.unlock
-      begin
-        Fiber.yield
-        sleep(1.millisecond)
-      ensure
-        @mutex.lock
+      # 4. Perform the boundary scan against the rolling localized context window
+      if local_buffer.includes?(target)
+        break
       end
     end
   end
+
+  local_buffer
 end
