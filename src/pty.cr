@@ -26,6 +26,37 @@ module PTY
     end
   end
 
+  class Queue(T)
+    # https://share.google/aimode/D2lpUVd2CmUbAwhDg
+    def initialize
+      @deque = Deque(T).new
+      @mutex = Sync::Mutex.new
+      @cond = Sync::ConditionVariable.new
+    end
+    
+    # Ruby's Queue#push (never blocks, wakes up waiting pops)
+    def push(item : T)
+      @mutex.synchronize do
+        @deque.push(item)
+        @cond.signal # Wake up one fiber waiting in #pop
+      end
+    end
+    
+    # Ruby's Queue#pop (blocks the fiber until an item is pushed)
+    def pop : T
+      @mutex.synchronize do
+        while @deque.empty?
+          @cond.wait(@mutex) # Temporarily releases mutex and suspends fiber
+        end
+        @deque.shift # FIFO extraction
+      end
+    end
+    
+    def size : Int32
+      @mutex.synchronize { @deque.size }
+    end
+  end
+
   module Run
     # Runs a one-shot shell command in a pseudo-terminal. The transcript combines stdout
     # and stderr because both are attached to the same terminal.
