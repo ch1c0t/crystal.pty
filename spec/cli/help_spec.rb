@@ -1,4 +1,4 @@
-require_relative 'helper'
+require_relative '../helper'
 
 describe 'cli' do
   it 'prints a help message' do
