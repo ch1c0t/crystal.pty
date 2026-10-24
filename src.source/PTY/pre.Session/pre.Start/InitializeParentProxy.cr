@@ -5,17 +5,17 @@ private def initialize_parent_proxy(pid : Int32, slave_fd : Int32, master_fd : I
   @started.set(true)
 
   if child_pid = @process.try(&.pid)
-    debug_log("POSIX Fork Handshake Successful", {
+    debug_log("initialize_parent_proxy :: Fork Handshake Successful", {
       allocated_child_pid: child_pid,
       master_fd: @master_io.try(&.fd)
     })
   else
-    debug_log("POSIX Fork Allocation Error - Process Refused to Boot", "")
+    debug_log("initialize_parent_proxy :: Fork Allocation Error", "")
   end
 
   monitor_parent_stream(master_fd)
 
-  debug_log("Background Concurrency Workers Spawned", {
+  debug_log("initialize_parent_proxy :: Background Workers Spawned", {
     reader_active_flag: @reader_active.get,
     ingest_queue_object_id: @ingest_queue.object_id
   })
