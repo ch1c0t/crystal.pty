@@ -1,0 +1,149 @@
+srun report
+===========
+Run directory: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533
+Working directory: /home/om/sources/crystal/crystal.pty
+Started at: 2026-10-25 01:35:33 (Unix time 1792881333)
+Spec glob: spec/**/*_spec.cr
+Per-spec timeout: 10s (TERM, then KILL after 2s)
+Discovered: 24
+Completed: 24/24
+Passed: 23
+Failed: 1
+Elapsed: 59.91s
+
+Results
+-------
+PASS: spec/command/callbacks/callback_error_spec.cr
+  elapsed: 2.33s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__callbacks__callback_error_spec.cr.log
+
+PASS: spec/command/compatibility/constructor_spec.cr
+  elapsed: 2.27s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__compatibility__constructor_spec.cr.log
+
+PASS: spec/command/compatibility/existing_session_spec.cr
+  elapsed: 2.52s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__compatibility__existing_session_spec.cr.log
+
+PASS: spec/command/exit_status/exit_code_spec.cr
+  elapsed: 2.4s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__exit_status__exit_code_spec.cr.log
+
+PASS: spec/command/exit_status/signal_exit_spec.cr
+  elapsed: 2.17s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__exit_status__signal_exit_spec.cr.log
+
+PASS: spec/command/launch/missing_executable_spec.cr
+  elapsed: 2.0s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__launch__missing_executable_spec.cr.log
+
+PASS: spec/command/terminal/default_terminal_spec.cr
+  elapsed: 2.08s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__terminal__default_terminal_spec.cr.log
+
+PASS: spec/command/terminal/explicit_dimensions_spec.cr
+  elapsed: 2.19s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__terminal__explicit_dimensions_spec.cr.log
+
+PASS: spec/command/terminal/stdio_tty_spec.cr
+  elapsed: 2.15s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__command__terminal__stdio_tty_spec.cr.log
+
+PASS: spec/run/direct_command_spec.cr
+  elapsed: 2.09s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__run__direct_command_spec.cr.log
+
+PASS: spec/run/streaming_spec.cr
+  elapsed: 1.99s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__run__streaming_spec.cr.log
+
+PASS: spec/run/terminal_dimensions_spec.cr
+  elapsed: 2.03s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__run__terminal_dimensions_spec.cr.log
+
+PASS: spec/session/commands/quote_escaping_spec.cr
+  elapsed: 2.24s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__commands__quote_escaping_spec.cr.log
+
+PASS: spec/session/environment/shell_spec.cr
+  elapsed: 2.24s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__environment__shell_spec.cr.log
+
+PASS: spec/session/input/persistent_input_spec.cr
+  elapsed: 2.28s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__input__persistent_input_spec.cr.log
+
+TIMEOUT: spec/session/lifecycle/terminate_spec.cr
+  elapsed: 10.03s
+  exit code: 124
+  reason: exceeded the 10s timeout; timeout sent TERM and escalated to KILL if needed.
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/failing/spec__session__lifecycle__terminate_spec.cr.log
+  last output lines:
+        message_chunk: "START_MARK_1792881368791_936\r\n"
+        total_accumulated_bytes: 108
+    [36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+        start_sentinel_index: 108
+        end_sentinel_index: 70
+        valid_chronological_order: false
+    timeout: sending signal TERM to command ‘crystal’
+    
+    
+    Aborted!
+    Finished in 7.74 seconds
+    0 examples, 0 failures, 0 errors, 0 pending
+
+PASS: spec/session/output/callback_error_spec.cr
+  elapsed: 2.14s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__output__callback_error_spec.cr.log
+
+PASS: spec/session/output/high_velocity_spec.cr
+  elapsed: 2.2s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__output__high_velocity_spec.cr.log
+
+PASS: spec/session/output/sentinel_isolation_spec.cr
+  elapsed: 2.12s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__output__sentinel_isolation_spec.cr.log
+
+PASS: spec/session/output/streaming_spec.cr
+  elapsed: 2.07s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__output__streaming_spec.cr.log
+
+PASS: spec/session/terminal/dimensions_spec.cr
+  elapsed: 2.14s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__terminal__dimensions_spec.cr.log
+
+PASS: spec/session/terminal/resize_spec.cr
+  elapsed: 2.01s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__terminal__resize_spec.cr.log
+
+PASS: spec/session/working_directory/interactive_spec.cr
+  elapsed: 2.01s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__working_directory__interactive_spec.cr.log
+
+PASS: spec/session/working_directory/run_spec.cr
+  elapsed: 2.22s
+  exit code: 0
+  full output: /home/om/sources/crystal/crystal.pty/crystal.pty.srun.1792881333_20261025_013533/passing/spec__session__working_directory__run_spec.cr.log
+
