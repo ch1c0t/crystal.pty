@@ -8,7 +8,7 @@ private def harvest_execution_block(
   # 1. Audit the entry metrics and the raw incoming text data payload size
   transcript = output[snapshot_index..-1]
   
-  debug_log("harvest_execution_block Invoked", {
+  debug_log("harvest_execution_block :: Invoked", {
     snapshot_index: snapshot_index,
     transcript_bytesize: transcript.bytesize,
     captured_text_bytesize: captured_text.bytesize
@@ -25,12 +25,12 @@ private def harvest_execution_block(
 
   # 4. Fallback safeguard check if line formatting caused anomalies
   if clean_output.empty? && !captured_text.empty?
-    debug_log("Harvester Triggered Captured Text Fallback Routine", "")
+    debug_log("harvest_execution_block :: Captured Text Fallback", "")
     clean_output = strip_terminal_noise(captured_text)
   end
 
   # 5. Final output check confirming what the assertion block will receive
-  debug_log("harvest_execution_block Completed Evaluation", {
+  debug_log("harvest_execution_block :: Completed Evaluation", {
     final_cleaned_output: clean_output,
     final_exit_status: exit_status
   })
