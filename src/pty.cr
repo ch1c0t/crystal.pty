@@ -473,7 +473,8 @@ module PTY
               when :session_closed
                 break # Main process died, exit instantly
               when :stream_idle
-                # The OS buffer is temporarily empty. Check if we already have the payload
+                # Input echo can contain both sentinels before the command has finished.
+                # Only stop once the end marker carries a numeric exit status.
                 if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
                   break
                 end
