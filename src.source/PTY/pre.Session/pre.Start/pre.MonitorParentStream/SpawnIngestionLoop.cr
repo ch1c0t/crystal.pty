@@ -12,8 +12,7 @@ private def spawn_ingestion_loop
         # Move the data instantly into our thread-safe queue
         chunk = String.new(io_buffer[0, bytes_read])
 
-        p "in #spawn_ingestion_loop"
-        debug_log("Ingestion Fiber Received Data", {
+        debug_log("spawn_ingestion_loop :: Received Data", {
           bytes_read: bytes_read,
           raw_payload: chunk
         })
