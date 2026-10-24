@@ -3,7 +3,7 @@ private def isolate_sandboxed_payload(transcript : String, start_sentinel : Stri
   start_pos = transcript.index(start_sentinel)
   end_pos = transcript.rindex(end_sentinel)
   
-  debug_log("Harvester Boundary Slice Mapping", {
+  debug_log("isolate_sandboxed_payload :: Boundary Slice Mapping", {
     start_pos: start_pos,
     end_pos: end_pos
   })
