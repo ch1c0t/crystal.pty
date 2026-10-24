@@ -209,8 +209,8 @@ end
 
 timeout_seconds = SRun::DEFAULT_TIMEOUT_SECONDS
 if env_timeout = ENV["SRUN_TIMEOUT"]?
-  parsed_timeout = env_timeout.to_i?
-  unless parsed_timeout && parsed_timeout > 0
+  parsed_timeout = env_timeout.to_i? || 0
+  unless parsed_timeout > 0
     STDERR.puts "srun: SRUN_TIMEOUT must be a positive integer number of seconds"
     exit 2
   end
@@ -220,8 +220,8 @@ end
 OptionParser.parse do |parser|
   parser.banner = "Usage: srun [--timeout SECONDS]"
   parser.on("-t SECONDS", "--timeout=SECONDS", "Timeout for each spec (default: #{timeout_seconds}s)") do |value|
-    parsed_timeout = value.to_i?
-    unless parsed_timeout && parsed_timeout > 0
+    parsed_timeout = value.to_i? || 0
+    unless parsed_timeout > 0
       STDERR.puts "srun: timeout must be a positive integer number of seconds"
       exit 2
     end
