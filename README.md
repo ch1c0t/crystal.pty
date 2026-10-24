@@ -64,6 +64,17 @@ output, exit_code = PTY.run("stty size", rows: 40, columns: 120)
 - Callback exceptions terminate the process group, clean up the reader and PTY, and are re-raised.
 - stdin, stdout and stderr are attached to the controlling PTY. If `TERM` is unset, it defaults to `xterm-256color` in the child.
 
+## Running specs in isolated processes
+
+Build the `srun` runner and invoke it from the repository root:
+
+```sh
+shards build srun
+./bin/srun --timeout 30
+```
+
+`srun` discovers `spec/**/*_spec.cr` and runs each file as a separate `crystal spec <file>` process. Each process has a 30-second timeout by default; override it with `--timeout SECONDS` or `SRUN_TIMEOUT`. Every invocation creates a directory named after the current directory with both Unix time and a `%Y%m%d_%H%M%S` timestamp. Full output is saved under `passing/` or `failing/`, and `report.txt` lists each result, failure details and timeout events. Timed-out runs are stopped with TERM and escalated to KILL after two seconds.
+
 ## Development
 
 ```sh

@@ -6,4 +6,6 @@ authors:
 targets:
   crystal.pty:
     main: src/bin/crystal.pty.cr
+  srun:
+    main: src/bin/srun.cr
 crystal: ">= 1.15.1"
