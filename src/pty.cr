@@ -267,7 +267,7 @@ module PTY
         # Checks if the full execution transcript sandwich has successfully concluded
         private def command_sandwich_complete?(buffer : String, start_sentinel : String, end_sentinel : String) : Bool
           # 1. Locate where the literal sentinels begin in the stream
-          start_idx = buffer.index(start_sentinel)
+          start_idx = buffer.rindex(start_sentinel)
           # FIX: Locate the LAST (most recent) occurrence of the end sentinel string
           end_idx = buffer.rindex(end_sentinel)
         
@@ -326,18 +326,10 @@ module PTY
       module DispatchSandwichCommands
         # Helper C: Transmits the text sandwich straight down the interactive line
         private def dispatch_sandwich_commands(command_string : String, start_sentinel : String, end_sentinel : String)
-          write("echo #{start_sentinel}\n")
-          write("#{command_string}\n")
-          # write("#{command_string}\n") unless command_string.empty?
-          write("echo #{end_sentinel}__$?__\n")
+          # Run in a subshell so an "exit" command doesn't kill the persistent shell.
+          wrapped_payload = "echo #{start_sentinel}; ( \n#{command_string}\n); echo #{end_sentinel}__$?__\n"
+          write(wrapped_payload)
         end
-        # Inside the DispatchSandwichCommands helper module:
-        # def dispatch_sandwich_commands(command_string : String, start_sentinel : String, end_sentinel : String)
-        #   # FIX: Group the command execution within an isolated syntax frame, 
-        #   # ensuring inner instructions cannot accidentally swallow trailing control sentinels
-        #   wrapped_payload = "echo #{start_sentinel}; ( #{command_string} ); echo #{end_sentinel}__$?__\n"
-        #   write(wrapped_payload)
-        # end
       end
     
       module GenerateSentinels
@@ -360,25 +352,26 @@ module PTY
               suffix = transcript[end_idx + end_sentinel.bytesize..-1]
               if suffix.starts_with?("__") && (closing_idx = suffix.index("__", 2))
                 status_digits = suffix[2...closing_idx]
-                
+
                 debug_log("extract_status_code :: Status Digits Extracted", {
                   status_digits: status_digits,
-                  is_numeric: status_digits.chars.all?(&.ascii_number?)
+                  is_numeric: !status_digits.empty? && status_digits.chars.all?(&.ascii_number?)
                 })
-          
+
                 if !status_digits.empty? && status_digits.chars.all?(&.ascii_number?)
                   return status_digits.to_i
                 end
               end
             end
-            0
+
+            raise "Could not extract command exit status from PTY transcript (sentinel #{end_sentinel})"
           end
         end
       
         module IsolateSandboxedPayload
           # Slices out only the text explicitly contained between the boundary walls
           private def isolate_sandboxed_payload(transcript : String, start_sentinel : String, end_sentinel : String) : String?
-            start_pos = transcript.index(start_sentinel)
+            start_pos = transcript.rindex(start_sentinel)
             end_pos = transcript.rindex(end_sentinel)
             
             debug_log("isolate_sandboxed_payload :: Boundary Slice Mapping", {
@@ -481,7 +474,7 @@ module PTY
                 break # Main process died, exit instantly
               when :stream_idle
                 # The OS buffer is temporarily empty. Check if we already have the payload
-                if captured_text.includes?(start_sentinel) && captured_text.match(/#{Regex.escape(end_sentinel)}/)
+                if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
                   break
                 end
               when :subscriber_detached, :command_timeout
