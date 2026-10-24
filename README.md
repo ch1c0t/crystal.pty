@@ -73,7 +73,7 @@ shards build srun
 ./bin/srun --timeout 30
 ```
 
-`srun` discovers `spec/**/*_spec.cr` and runs each file as a separate `crystal spec <file>` process. Each process has a 30-second timeout by default; override it with `--timeout SECONDS` or `SRUN_TIMEOUT`. Every invocation creates a directory named after the current directory with both Unix time and a `%Y%m%d_%H%M%S` timestamp. Full output is saved under `passing/` or `failing/`, and `report.txt` lists each result, failure details and timeout events. Timed-out runs are stopped with TERM and escalated to KILL after two seconds.
+`srun` discovers `spec/**/*_spec.cr` and runs each file as a separate `crystal spec <file>` process. Each process has a 30-second timeout by default; override it with `--timeout SECONDS` or `SRUN_TIMEOUT`. Every invocation creates a directory named after the current directory with both Unix time and a `%Y%m%d_%H%M%S` timestamp. Full output is saved under `passing/` or `failing/`, and `report.txt` lists each result, failure details and timeout events. Timed-out runs receive TERM and are escalated to KILL after two seconds if they do not exit.
 
 ## Development
 
