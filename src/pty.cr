@@ -653,9 +653,9 @@ module PTY
           # The child must not retain the parent's PTY master descriptor. Keeping it
           # open in the child can prevent expected PTY hangup/EOF behaviour.
           PTY::C.close(master_fd)
-
+        
           PTY::C.login_tty(slave_fd)
-
+        
           # Direct POSIX LibC mutations skip high-level language object allocations
           # 1. Apply environment variables using raw string copies
           # without touching Crystal's heavy ENV wrapper object
@@ -668,12 +668,12 @@ module PTY
               LibC.setenv(k.to_unsafe, v.to_unsafe, 1)
             end
           end
-
+        
           # 2. Safely change directory locally inside the child sandbox
           if target_cwd
             LibC.chdir(target_cwd.to_unsafe)
           end
-
+        
           # Overwrite the child memory stack instantly
           Process.exec(target_shell)
           PTY::C._exit(1)

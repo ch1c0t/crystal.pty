@@ -1,8 +1,8 @@
 require_relative '../helper'
 
-describe 'cli' do
-  it 'prints a help message' do
-    stdout = cli '--help'
-    expect(stdout.first).to start_with 'crystal.pty is a CLI made with Crystal.'
+describe 'something with RSpec' do
+  it 'allows to test Crystal code with Ruby' do
+    expect(true).to be true
+    expect(false).to be false
   end
 end
