@@ -27,9 +27,14 @@ module SRun
       base_root_dir = File.join(Dir.current, "#{directory_name}.srun.#{started_at.to_unix}_#{timestamp}")
       root_dir = base_root_dir
       suffix = 2
-      while Dir.exists?(root_dir)
-        root_dir = "#{base_root_dir}.#{suffix}"
-        suffix += 1
+      loop do
+        begin
+          Dir.mkdir(root_dir)
+          break
+        rescue ex : File::AlreadyExistsError
+          root_dir = "#{base_root_dir}.#{suffix}"
+          suffix += 1
+        end
       end
 
       passing_dir = File.join(root_dir, "passing")
