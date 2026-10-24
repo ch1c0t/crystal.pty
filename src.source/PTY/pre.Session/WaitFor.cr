@@ -6,9 +6,8 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds) : String
   start_time = Time.instant
   local_buffer = ""
 
-  p "in #wait_for"
   add_queue do |queue|
-    debug_log("wait_for Engine Initialized", {
+    debug_log("wait_for :: Engine Initialized", {
       tracking_target: target,
       timeout_threshold: timeout,
       queue_object_id: queue.object_id
@@ -20,7 +19,7 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds) : String
         raise TimeoutError.new("Timed out waiting for '#{target}'")
       end
 
-      debug_log("wait_for Iteration Guard Pass", {
+      debug_log("wait_for :: Iteration Guard Pass", {
         elapsed_seconds: start_time.elapsed.to_f,
         reader_active_state: @reader_active.get,
         backlogged_queue_elements: queue.size
@@ -38,7 +37,7 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds) : String
       in String
         local_buffer += message
 
-        debug_log("wait_for Received Data String", {
+        debug_log("wait_for :: Received Data", {
           arrived_chunk: message,
           updated_local_buffer: local_buffer,
           match_detected: local_buffer.includes?(target)
@@ -48,7 +47,7 @@ def wait_for(target : String, timeout : Time::Span = 2.seconds) : String
           break
         end
       in Symbol
-        debug_log("wait_for Intercepted Control Signal", {
+        debug_log("wait_for :: Control Signal", {
           control_token: message,
           remaining_elements_to_drain: queue.size
         })
