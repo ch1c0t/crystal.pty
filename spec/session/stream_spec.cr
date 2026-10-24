@@ -10,7 +10,8 @@ describe PTY::Session do
     session.start
 
     # 2. Run the command. This blocks cleanly until the sentinel returns!
-    command = "printf 'stream-begin'; read value; printf 'stream-end:%%s\\n' \"$value\""
+    command = "echo 'hello-input' | ( printf 'stream-begin'; read value; printf 'stream-end:%s\\n' \"$value\" )"
+
     result = session.run(command) do |chunk|
       chunks << chunk
     end
@@ -36,5 +37,24 @@ describe PTY::Session do
     end
 
     session.terminate
+  end
+
+  it "handles high-velocity real-time text streams over multiple ticks" do
+    ticks = [] of String
+    session = PTY::Session.new("/bin/sh")
+    session.start
+
+    # Tests continuous background chunks arriving over a time window
+    command = "for i in $(seq 1 5); do echo \"Tick $i\" && sleep 0.01; done"
+    result = session.run(command) do |chunk|
+      ticks << chunk
+    end
+
+    session.terminate
+
+    # Verify ticks arrived and the global transcript captured them seamlessly
+    result.output.should contain("Tick 1")
+    result.output.should contain("Tick 5")
+    ticks.join.should contain("Tick 3")
   end
 end

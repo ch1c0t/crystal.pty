@@ -1,6 +1,17 @@
 # STRICTLY starts a vanilla interactive shell session without inputs or blocks
 def start : self
-  return self if started?
+  debug_log("Session Boot Sequence Triggered", {
+    target_shell: @shell,
+    dimensions: "#{@rows} rows x #{@columns} columns",
+    working_dir: @cwd,
+    custom_env: @env
+  })
+
+  # Guard against booting an already running process
+  if @started.swap(true)
+    debug_log("Session Start Aborted - Process is Already Running", "")
+    return self
+  end
 
   # Phase 1: Allocate system virtual descriptors
   master_fd, slave_fd = allocate_pty
@@ -19,8 +30,17 @@ def start : self
   else
     # INSIDE PARENT
     initialize_parent_proxy(pid, slave_fd, master_fd)
+    debug_log("Before #wait_for in #start: Entering Initial Shell Settlement Sync Guard", {
+      waiting_for_token: "$ ",
+      current_history_size: output.bytesize
+    })
     wait_for("$ ") rescue nil
   end
+
+  debug_log("Session Boot Sequence Complete - Ready for Pasted Script Inputs", {
+    final_history_snapshot: output
+  })
+
   self
 end
 

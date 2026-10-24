@@ -30,6 +30,7 @@ end
 def pop : T
   @mutex.synchronize do
     while @deque.empty?
+      raise ClosedError.new("Queue is closed") if @closed
       @cond.wait # Temporarily releases mutex and suspends fiber
     end
     @deque.shift # FIFO extraction

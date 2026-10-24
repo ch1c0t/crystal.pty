@@ -1,30 +1,45 @@
-# Cleans up resources cleanly and forces blocking loops to break immediately
-def terminate
-  if process = @process
-    Process.signal(Signal::KILL, process.pid) rescue nil
-    process.wait rescue nil
-    @process = nil
+def terminate : Nil
+  # 1. Immediately toggle the active lifecycle flags locklessly
+  @reader_active.set(false)
+
+  # 2. Break the kernel read lock by forcefully closing the master I/O loop first
+  if io = @master_io
+    begin
+      # Force raw unbuffered file descriptor closure to ensure immediate wake up
+      io.close unless io.closed?
+    rescue
+    ensure
+      @master_io = nil
+    end
   end
 
-  cleanup_streams
-end
+  # 3. Give the background scheduler a brief microsecond slice to drop suspended fibers
+  Fiber.yield
 
-# Close the PTY handles to completely unblock the asynchronous read fiber loop
-private def cleanup_streams
-  @master_io.try(&.close)
-  @master_io = nil
-  @started.set(false)
-end
-
-def alive? : Bool
-  if process = @process
-    !process.exists? || process.terminated? ? false : true
-  else
-    false
+  # 4. Clean up and reap the child process handle without blocking deadlocks
+  if proc = @process
+    begin
+      # Check if the process handle has already finished natively via the EOF cascade
+      unless proc.terminated?
+        proc.signal(Signal::TERM) rescue nil
+        
+        # Guard the wait call with a short non-blocking sleep retry matrix
+        start_wait = Time.monotonic
+        while !proc.terminated? && (Time.monotonic - start_wait) < 50.milliseconds
+          Fiber.yield
+        end
+        
+        # If it still resists, apply a terminal KILL strike
+        if !proc.terminated?
+          proc.signal(Signal::KILL) rescue nil
+        end
+      end
+      
+      # Final non-blocking reap to clear zombie states safely
+      proc.wait rescue nil
+    rescue
+    ensure
+      @process = nil
+    end
   end
-end
-
-# Returns whether the pseudo-terminal descriptors have been booted
-def started? : Bool
-  @started.get
 end

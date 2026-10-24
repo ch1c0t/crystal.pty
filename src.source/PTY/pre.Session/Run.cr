@@ -11,21 +11,35 @@ def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionR
       message = run_queue.pop
       case message
       in String
-        p!({run_pop_string: message})
+        debug_log("#run String", {
+          message_chunk: message,
+          total_accumulated_bytes: captured_text.bytesize
+        })
+
         captured_text += message
         stream_callback.call(message)
 
-        if captured_text.includes?(start_sentinel) && captured_text.includes?(end_sentinel)
-          # Make sure the end_sentinel index comes after the start_sentinel index
-          if captured_text.index(end_sentinel).not_nil! > captured_text.index(start_sentinel).not_nil!
-            break
-          end
+        # FIX: Validate the end_sentinel is followed by an evaluated integer digit layout (__\d+__)
+        # instead of a raw literal shell macro variable (__$?__), ensuring we never stop inside the input echo phase!
+        if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
+          p "command_sandwich_complete"
+          break
         end
       in Symbol
-        p!({run_pop_event: message})
+        debug_log("#run Symbol", {
+          event_token: message
+        })
+
         case message
         when :session_closed
-          break
+          break # Main process died, exit instantly
+        when :stream_idle
+          # The OS buffer is temporarily empty. Check if we already have the payload
+          if captured_text.includes?(start_sentinel) && captured_text.match(/#{Regex.escape(end_sentinel)}/)
+            break
+          end
+        when :subscriber_detached, :command_timeout
+          break # Escape the blocking pop loop to prevent a permanent freeze
         end
       end
     end
@@ -49,4 +63,5 @@ end
 
 include GenerateSentinels
 include DispatchSandwichCommands
+include CommandSandwichComplete
 include HarvestExecutionBlock

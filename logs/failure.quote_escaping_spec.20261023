@@ -1,0 +1,33 @@
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "$ ", bytes: 2}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "$ ", current_subscribers: 1}
+"in #run"
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "echo START_MARK_1792785567593_653\r\nawk 'BEGIN { print \"double-quotes-inside-single\" }'\r\nSTART_MARK_1792785567593_653\r\n", bytes: 118}
+"in #spawn_ingestion_loop"
+{ingestion_chunk: chunk, bytes: bytes_read} # => {ingestion_chunk: "echo END_MARK_1792785567593_653__$?__\r\n$ ", bytes: 41}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "echo START_MARK_1792785567593_653\r\nawk 'BEGIN { print \"double-quotes-inside-single\" }'\r\nSTART_MARK_1792785567593_653\r\n", current_subscribers: 1}
+"in #process_next_chunk"
+{distributing_chunk: chunk, current_subscribers: @subscribers.size} # => {distributing_chunk: "echo END_MARK_1792785567593_653__$?__\r\n$ ", current_subscribers: 1}
+{run_pop_string: message} # => {run_pop_string: "echo START_MARK_1792785567593_653\r\nawk 'BEGIN { print \"double-quotes-inside-single\" }'\r\nSTART_MARK_1792785567593_653\r\n"}
+{run_pop_event: message} # => {run_pop_event: :session_closed}
+F
+
+Failures:
+
+  1) PTY::Session robustly preserves nested single and double quotation marks inside a single interactive session
+     Failure/Error: result_a.output.should contain("double-quotes-inside-single")
+
+       Expected:   "START_MARK_1792785567593_653"
+       to include: "double-quotes-inside-single"
+
+     # spec/session/quote_escaping_spec.cr:15
+
+Finished in 2.09 milliseconds
+1 examples, 1 failures, 0 errors, 0 pending
+
+Failed examples:
+
+crystal spec spec/session/quote_escaping_spec.cr:5 # PTY::Session robustly preserves nested single and double quotation marks inside a single interactive session

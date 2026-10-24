@@ -77,6 +77,7 @@ module PTY
     def pop : T
       @mutex.synchronize do
         while @deque.empty?
+          raise ClosedError.new("Queue is closed") if @closed
           @cond.wait # Temporarily releases mutex and suspends fiber
         end
         @deque.shift # FIFO extraction
@@ -177,6 +178,26 @@ module PTY
       end
     end
   
+    module DebugLog
+      # A specialized multi-line formatter for high-concurrency stream tracing
+      private def debug_log(prefix : String, data : NamedTuple | Hash | String)
+        # Standardize layout into clean indents
+        indent = "  "
+        
+        # Format the key/value payload cleanly
+        body = case data
+               when String
+                 data.inspect
+               else
+                 # Map NamedTuple or Hash keys line-by-line with deep indents
+                 data.map { |k, v| "\n#{indent}#{indent}#{k}: #{v.inspect}" }.join
+               end
+      
+        # Output to standard error so it never collides with standard output wires
+        STDERR.puts "\e[36m[PTY DEBUG]\e[0m \e[33m#{prefix}\e[0m#{body}\n"
+      end
+    end
+  
     module Initialize
       def initialize(
         @shell : String = "/bin/sh",
@@ -188,7 +209,7 @@ module PTY
         @cwd : String? = nil
       )
         @started = Atomic(Bool).new(false)
-        @ingest_queue = PTY::Queue(String).new
+        @ingest_queue = PTY::Queue(String | Symbol).new
         @subscribers = Set(PTY::Queue(String | Symbol)).new
         @subscribers_mutex = Sync::Mutex.new
       
@@ -207,13 +228,28 @@ module PTY
         @cwd : String? = nil
       )
         @started = Atomic(Bool).new(false)
-        @ingest_queue = PTY::Queue(String).new
+        @ingest_queue = PTY::Queue(String | Symbol).new
         @subscribers = Set(PTY::Queue(String | Symbol)).new
         @subscribers_mutex = Sync::Mutex.new
       
         # Securely box the initial empty string state into a raw atomic pointer reference
         @output_ptr = Atomic(Pointer(Void)).new(Box(String).box(""))
         @reader_active = Atomic(Bool).new(false)
+      end
+    end
+  
+    module Questions
+      def alive? : Bool
+        if process = @process
+          !process.exists? || process.terminated? ? false : true
+        else
+          false
+        end
+      end
+      
+      # Returns whether the pseudo-terminal descriptors have been booted
+      def started? : Bool
+        @started.get
       end
     end
   
@@ -227,13 +263,81 @@ module PTY
     end
   
     module Run
+      module CommandSandwichComplete
+        # Checks if the full execution transcript sandwich has successfully concluded
+        private def command_sandwich_complete?(buffer : String, start_sentinel : String, end_sentinel : String) : Bool
+          # 1. Locate where the literal sentinels begin in the stream
+          start_idx = buffer.index(start_sentinel)
+          # FIX: Locate the LAST (most recent) occurrence of the end sentinel string
+          end_idx = buffer.rindex(end_sentinel)
+        
+          debug_log("Sandwich Index Scan", {
+            start_sentinel_index: start_idx,
+            end_sentinel_index: end_idx,
+            valid_chronological_order: (start_idx && end_idx ? end_idx > start_idx : false)
+          })
+        
+          return false unless start_idx && end_idx && end_idx > start_idx
+        
+          # 2. Extract the sliding window immediately following the end sentinel
+          suffix = buffer[end_idx + end_sentinel.bytesize..-1]
+        
+          debug_log("Sandwich Trailer Sliced Suffix", {
+            extracted_suffix: suffix,
+            starts_with_double_underscore: suffix.starts_with?("__")
+          })
+          
+          # 3. Validate the structure of the evaluated trailing exit code block
+          evaluation_result = extract_status_suffix(suffix)
+        
+          debug_log("Sandwich Completeness Evaluation Result", {
+            is_command_completely_finished: evaluation_result
+          })
+        
+          evaluation_result
+        end
+        
+        # Validates the "__STATUS__" wrapping envelope format without using regex
+        private def extract_status_suffix(suffix : String) : Bool
+          return false unless suffix.starts_with?("__")
+          
+          # Find the closing underscore delimiter, skipping the first two opening characters
+          if closing_underscore_idx = suffix.index("__", 2)
+            status_digits = suffix[2...closing_underscore_idx]
+        
+            debug_log("Sandwich Exit Token Isolated", {
+              isolated_digits: status_digits,
+              is_strictly_numeric: valid_status_digits?(status_digits)
+            })
+        
+            return valid_status_digits?(status_digits)
+          end
+        
+          false
+        end
+        
+        # Ensures the token consists strictly of evaluated digits, ignoring the literal "__$?__" echo
+        private def valid_status_digits?(digits : String) : Bool
+          # FIX: Chain `.chars` or `.each_char` before invoking `.all?`
+          !digits.empty? && digits.chars.all?(&.ascii_number?)
+        end
+      end
+    
       module DispatchSandwichCommands
         # Helper C: Transmits the text sandwich straight down the interactive line
         private def dispatch_sandwich_commands(command_string : String, start_sentinel : String, end_sentinel : String)
           write("echo #{start_sentinel}\n")
-          write("#{command_string}\n") unless command_string.empty?
+          write("#{command_string}\n")
+          # write("#{command_string}\n") unless command_string.empty?
           write("echo #{end_sentinel}__$?__\n")
         end
+        # Inside the DispatchSandwichCommands helper module:
+        # def dispatch_sandwich_commands(command_string : String, start_sentinel : String, end_sentinel : String)
+        #   # FIX: Group the command execution within an isolated syntax frame, 
+        #   # ensuring inner instructions cannot accidentally swallow trailing control sentinels
+        #   wrapped_payload = "echo #{start_sentinel}; ( #{command_string} ); echo #{end_sentinel}__$?__\n"
+        #   write(wrapped_payload)
+        # end
       end
     
       module GenerateSentinels
@@ -249,102 +353,115 @@ module PTY
       end
     
       module HarvestExecutionBlock
-        module ExtractExitCode
-          # Helper 1: Queries the exit status from the end sentinel or raw process table
-          private def extract_exit_code(command_transcript : String, end_sentinel : String) : Int32
-            if match = command_transcript.match(/#{end_sentinel}__(\d+)__/)
-              return match[1].not_nil!.to_i
-            end
+        module ExtractStatusCode
+          # Extracts the evaluated integer return status from the tail of the transcript
+          private def extract_status_code(transcript : String, end_sentinel : String) : Int32
+            if end_idx = transcript.rindex(end_sentinel)
+              suffix = transcript[end_idx + end_sentinel.bytesize..-1]
+              if suffix.starts_with?("__") && (closing_idx = suffix.index("__", 2))
+                status_digits = suffix[2...closing_idx]
+                
+                debug_log("Harvester Status Digits Extracted", {
+                  status_digits: status_digits,
+                  is_numeric: status_digits.chars.all?(&.ascii_number?)
+                })
           
-            if !@reader_active && (proc = @process)
-              return proc.wait.exit_code rescue 0
+                if !status_digits.empty? && status_digits.chars.all?(&.ascii_number?)
+                  return status_digits.to_i
+                end
+              end
             end
-          
             0
           end
         end
       
-        module FallbackCleanText
-          # Helper 3: Secondary cleanup filter block targeting raw real-time captured buffers
-          private def fallback_clean_text(
-            captured_text : String, 
-            command_string : String, 
-            start_sentinel : String, 
-            end_sentinel : String
-          ) : String
-            captured_text
-              .gsub(/#{Regex.escape(command_string)}\r?\n/, "")
-              .gsub(/echo START_MARK_.+?\r?\n/, "")
-              .gsub(/echo #{end_sentinel}__\$\?__\r?\n/, "")
-              .sub(/^[\$\%\#]\s*/, "")
-              .strip
-          end
-        end
-      
-        module FilterInfrastructureLines
-          private def filter_infrastructure_lines(
-            transcript : String, 
-            command_string : String, 
-            start_sentinel : String, 
-            end_sentinel : String
-          ) : String
-            clean_lines = [] of String
+        module IsolateSandboxedPayload
+          # Slices out only the text explicitly contained between the boundary walls
+          private def isolate_sandboxed_payload(transcript : String, start_sentinel : String, end_sentinel : String) : String?
+            start_pos = transcript.index(start_sentinel)
+            end_pos = transcript.rindex(end_sentinel)
             
-            transcript.each_line do |line|
-              trimmed_line = line.strip
+            debug_log("Harvester Boundary Slice Mapping", {
+              start_pos: start_pos,
+              end_pos: end_pos
+            })
           
-              # 1. Skip core infrastructure sentinel rows cleanly using explicit words
-              next if trimmed_line.includes?("START_MARK")
-              next if trimmed_line.includes?("END_MARK")
-              
-              # 2. FIXED: Catch split trailing sentinel fragments (like "738_730__$?__") 
-              # by checking if the row ends with the unique sentinel indicator sequence
-              next if trimmed_line.ends_with?("__$?__")
-              next if trimmed_line.includes?("__") && trimmed_line.ends_with?("__")
-          
-              # 3. Clean out direct input command echoes
-              clean_line = line.gsub(/#{Regex.escape(command_string)}/, "").strip
-              
-              # 4. Strip leading prompt indicators cleanly without a complex regex matcher
-              if clean_line.starts_with?('$') || clean_line.starts_with?('%') || clean_line.starts_with?('#')
-                clean_line = clean_line[1..-1].strip
-              end
-              
-              clean_lines << clean_line unless clean_line.empty?
+            if start_pos && end_pos && end_pos > start_pos
+              return transcript[start_pos + start_sentinel.bytesize...end_pos]
             end
+            nil
+          end
           
-            clean_lines.join("\n").strip
+          # private def isolate_sandboxed_payload(transcript : String, start_sentinel : String, end_sentinel : String) : String?
+          #   # FIX: Switch from .index to .rindex for the start sentinel!
+          #   # This skips past the raw shell input echo row entirely and finds where the actual output starts.
+          #   start_pos = transcript.rindex(start_sentinel)
+          #   end_pos = transcript.rindex(end_sentinel)
+          #
+          #   debug_log("Harvester Boundary Slice Mapping", {
+          #     start_pos: start_pos,
+          #     end_pos: end_pos
+          #   })
+          #
+          #   if start_pos && end_pos && end_pos > start_pos
+          #     # Slice the text starting after the end of the second (output) start sentinel
+          #     return transcript[start_pos + start_sentinel.bytesize...end_pos]
+          #   end
+          #   nil
+          # end
+        end
+      
+        module StripTerminalNoise
+          # Strips control characters, shell prompts, and trailing carrier returns
+          private def strip_terminal_noise(text : String) : String
+            # Strip TTY spacing variables, shell markers ($), and root symbols (#)
+            text.strip("\r\n$ #%")
           end
         end
       
-        # Isolates the captured text and extracts the exit status safely
         private def harvest_execution_block(
-          snapshot_index : Int32, 
-          command_string : String, 
-          start_sentinel : String, 
-          end_sentinel : String, 
+          snapshot_index : Int32,
+          command_string : String,
+          start_sentinel : String,
+          end_sentinel : String,
           captured_text : String
         ) : PTY::ExecutionResult
+          # 1. Audit the entry metrics and the raw incoming text data payload size
+          transcript = output[snapshot_index..-1]
+          
+          debug_log("harvest_execution_block Invoked", {
+            snapshot_index: snapshot_index,
+            transcript_bytesize: transcript.bytesize,
+            captured_text_bytesize: captured_text.bytesize
+          })
         
-          command_transcript = output[snapshot_index..-1]
+          # 2. Extract exit state code using our reverse-index scanner
+          exit_status = extract_status_code(transcript, end_sentinel)
         
-          # Step 1: Extract status
-          exit_status = extract_exit_code(command_transcript, end_sentinel)
-        
-          # Step 2: Line-by-line infrastructure filtering
-          clean_output = filter_infrastructure_lines(command_transcript, command_string, start_sentinel, end_sentinel)
-        
-          # Step 3: Fallback verification if the line buffer yielded an empty block
-          if clean_output.empty? && !captured_text.empty?
-            clean_output = fallback_clean_text(captured_text, command_string, start_sentinel, end_sentinel)
+          # 3. Clean the transcript block out of the sentinel sandboxed buffer
+          clean_output = ""
+          if raw_payload = isolate_sandboxed_payload(transcript, start_sentinel, end_sentinel)
+            clean_output = strip_terminal_noise(raw_payload)
           end
+        
+          # 4. Fallback safeguard check if line formatting caused anomalies
+          if clean_output.empty? && !captured_text.empty?
+            debug_log("Harvester Triggered Captured Text Fallback Routine", "")
+            clean_output = strip_terminal_noise(captured_text)
+          end
+        
+          # 5. Final output check confirming what the assertion block will receive
+          debug_log("harvest_execution_block Completed Evaluation", {
+            final_cleaned_output: clean_output,
+            final_exit_status: exit_status
+          })
         
           PTY::ExecutionResult.new(output: clean_output, status: exit_status)
         end
         
-        include ExtractExitCode
-        include FilterInfrastructureLines
-        include FallbackCleanText
+        include ExtractStatusCode
+        include IsolateSandboxedPayload
+        include StripTerminalNoise
       end
     
       # Streams execution chunks interactively in real time down an open session pipeline
@@ -360,21 +477,35 @@ module PTY
             message = run_queue.pop
             case message
             in String
-              p!({run_pop_string: message})
+              debug_log("#run String", {
+                message_chunk: message,
+                total_accumulated_bytes: captured_text.bytesize
+              })
+      
               captured_text += message
               stream_callback.call(message)
       
-              if captured_text.includes?(start_sentinel) && captured_text.includes?(end_sentinel)
-                # Make sure the end_sentinel index comes after the start_sentinel index
-                if captured_text.index(end_sentinel).not_nil! > captured_text.index(start_sentinel).not_nil!
-                  break
-                end
+              # FIX: Validate the end_sentinel is followed by an evaluated integer digit layout (__\d+__)
+              # instead of a raw literal shell macro variable (__$?__), ensuring we never stop inside the input echo phase!
+              if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
+                p "command_sandwich_complete"
+                break
               end
             in Symbol
-              p!({run_pop_event: message})
+              debug_log("#run Symbol", {
+                event_token: message
+              })
+      
               case message
               when :session_closed
-                break
+                break # Main process died, exit instantly
+              when :stream_idle
+                # The OS buffer is temporarily empty. Check if we already have the payload
+                if captured_text.includes?(start_sentinel) && captured_text.match(/#{Regex.escape(end_sentinel)}/)
+                  break
+                end
+              when :subscriber_detached, :command_timeout
+                break # Escape the blocking pop loop to prevent a permanent freeze
               end
             end
           end
@@ -398,11 +529,123 @@ module PTY
       
       include GenerateSentinels
       include DispatchSandwichCommands
+      include CommandSandwichComplete
       include HarvestExecutionBlock
     end
   
     module Start
       module MonitorParentStream
+        module ProcessNextChunk
+          private def process_next_chunk(chunk : String)
+            # 1. Update the inherently thread-safe atomic pointer log
+            update_history_snapshot(chunk)
+          
+            # Broadcast a copy of the chunk to every active listener queue safely
+            @subscribers_mutex.synchronize do
+              p "in #process_next_chunk"
+              # Replace raw distribution inspection with:
+              debug_log("Distribution Engine Fan-Out", {
+                active_subscribers: @subscribers.size,
+                fanning_chunk: chunk
+              })
+          
+              @subscribers.each &.push(chunk)
+            end
+          end
+          
+          private def update_history_snapshot(chunk : String)
+            loop do
+              old_ptr = @output_ptr.get
+              current_string = Box(String).unbox(old_ptr)
+          
+              # Combine into a new immutable string allocation
+              new_string = current_string + chunk
+              new_ptr = Box(String).box(new_string)
+          
+              # Perform the lockless atomic swap
+              if @output_ptr.compare_and_set(old_ptr, new_ptr)
+                break
+              end
+            end
+          end
+        end
+      
+        module SpawnDistributionLoop
+          private def spawn_distribution_loop
+            spawn do
+              begin
+                loop do
+                  message = @ingest_queue.pop
+                  case message
+                  in String
+                    process_next_chunk(message)
+                  in Symbol
+                    if message == :stream_idle
+                      # FAN-OUT EMIT: Broadcast the idle signal to all user listeners 
+                      # so they know they can safely inspect their rolling caches.
+                      @subscribers_mutex.synchronize do
+                        @subscribers.each &.push(:stream_idle)
+                      end
+                    end
+                  end
+                end
+              rescue ex : PTY::Queue::ClosedError
+                # CRITICAL: Only broadcast :session_closed when the ingestion fiber 
+                # explicitly closes the queue upon actual shell process termination!
+                @subscribers_mutex.synchronize do
+                  @subscribers.each &.push(:session_closed)
+                end
+              ensure
+                @subscribers_mutex.synchronize do
+                  @subscribers.clear
+                end
+              end
+            end
+          end
+        end
+      
+        module SpawnIngestionLoop
+          private def spawn_ingestion_loop
+            spawn do
+              io_buffer = Bytes.new(65536)
+              master_io = @master_io.not_nil!
+          
+              loop do
+                break if master_io.closed?
+                begin
+                  bytes_read = master_io.read(io_buffer)
+                  break if bytes_read == 0
+          
+                  # Move the data instantly into our thread-safe queue
+                  chunk = String.new(io_buffer[0, bytes_read])
+          
+                  p "in #spawn_ingestion_loop"
+                  debug_log("Ingestion Fiber Received Data", {
+                    bytes_read: bytes_read,
+                    raw_payload: chunk
+                  })
+          
+                  @ingest_queue.push(chunk)
+                rescue ex : IO::Error
+                  # Handle non-blocking retry signs gracefully
+                  if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
+                    # EMIT: Push a special in-band token to @ingest_queue signifying 
+                    # that the OS kernel buffer is temporarily empty (idle).
+                    @ingest_queue.push(:stream_idle)
+                    Fiber.yield
+                    sleep(1.millisecond)
+                    next
+                  else
+                    break
+                  end
+                end
+              end
+              @reader_active.set(false)
+              @ingest_queue.close # ◄─ Signal completion to the consumer layer
+            end
+          end
+        end
+      
         private def monitor_parent_stream(master_fd : Int32)
           setup_io_handles(master_fd)
           spawn_ingestion_loop
@@ -416,78 +659,9 @@ module PTY
           @reader_active.set(true)
         end
         
-        private def spawn_ingestion_loop
-          spawn do
-            io_buffer = Bytes.new(65536)
-            master_io = @master_io.not_nil!
-        
-            loop do
-              break if master_io.closed?
-              begin
-                bytes_read = master_io.read(io_buffer)
-                break if bytes_read == 0
-        
-                # Move the data instantly into our thread-safe queue
-                chunk = String.new(io_buffer[0, bytes_read])
-                p "in #spawn_ingestion_loop"
-                p!({ingestion_chunk: chunk, bytes: bytes_read})
-                @ingest_queue.push(chunk)
-              rescue ex : IO::Error
-                # Handle non-blocking retry signs gracefully
-                next if ex.os_error == Errno::EAGAIN || ex.os_error == Errno::EWOULDBLOCK
-                break
-              end
-            end
-            @reader_active.set(false)
-            @ingest_queue.close # ◄─ Signal completion to the consumer layer
-          end
-        end
-        
-        private def spawn_distribution_loop
-          spawn do
-            loop do
-              begin
-                # pop is guaranteed to return a strict String here, fixing the type error
-                chunk = @ingest_queue.pop
-                process_next_chunk(chunk)
-              rescue ex : PTY::Queue::ClosedError
-                break # Ingestion loop closed and queue is fully drained!
-              ensure
-                @subscribers_mutex.synchronize do
-                  @subscribers.each &.push(:session_closed)
-                end
-              end
-            end
-          end
-        end
-        
-        private def process_next_chunk(chunk : String)
-          # 1. Update the inherently thread-safe atomic pointer log
-          update_history_snapshot(chunk)
-        
-          # Broadcast a copy of the chunk to every active listener queue safely
-          @subscribers_mutex.synchronize do
-            p "in #process_next_chunk"
-            p!({distributing_chunk: chunk, current_subscribers: @subscribers.size})
-            @subscribers.each &.push(chunk)
-          end
-        end
-        
-        private def update_history_snapshot(chunk : String)
-          loop do
-            old_ptr = @output_ptr.get
-            current_string = Box(String).unbox(old_ptr)
-        
-            # Combine into a new immutable string allocation
-            new_string = current_string + chunk
-            new_ptr = Box(String).box(new_string)
-        
-            # Perform the lockless atomic swap
-            if @output_ptr.compare_and_set(old_ptr, new_ptr)
-              break
-            end
-          end
-        end
+        include SpawnIngestionLoop
+        include SpawnDistributionLoop
+        include ProcessNextChunk
       end
     
       module AllocatePTY
@@ -534,7 +708,22 @@ module PTY
           PTY::C.close(slave_fd) rescue nil
           @process = Process.new(Crystal::System::Process.new(pid))
           @started.set(true)
+        
+          if child_pid = @process.try(&.pid)
+            debug_log("POSIX Fork Handshake Successful", {
+              allocated_child_pid: child_pid,
+              master_fd: @master_io.try(&.fd)
+            })
+          else
+            debug_log("POSIX Fork Allocation Error - Process Refused to Boot", "")
+          end
+        
           monitor_parent_stream(master_fd)
+        
+          debug_log("Background Concurrency Workers Spawned", {
+            reader_active_flag: @reader_active.get,
+            ingest_queue_object_id: @ingest_queue.object_id
+          })
         end
         
         include MonitorParentStream
@@ -578,7 +767,18 @@ module PTY
     
       # STRICTLY starts a vanilla interactive shell session without inputs or blocks
       def start : self
-        return self if started?
+        debug_log("Session Boot Sequence Triggered", {
+          target_shell: @shell,
+          dimensions: "#{@rows} rows x #{@columns} columns",
+          working_dir: @cwd,
+          custom_env: @env
+        })
+      
+        # Guard against booting an already running process
+        if @started.swap(true)
+          debug_log("Session Start Aborted - Process is Already Running", "")
+          return self
+        end
       
         # Phase 1: Allocate system virtual descriptors
         master_fd, slave_fd = allocate_pty
@@ -597,8 +797,17 @@ module PTY
         else
           # INSIDE PARENT
           initialize_parent_proxy(pid, slave_fd, master_fd)
+          debug_log("Before #wait_for in #start: Entering Initial Shell Settlement Sync Guard", {
+            waiting_for_token: "$ ",
+            current_history_size: output.bytesize
+          })
           wait_for("$ ") rescue nil
         end
+      
+        debug_log("Session Boot Sequence Complete - Ready for Pasted Script Inputs", {
+          final_history_snapshot: output
+        })
+      
         self
       end
       
@@ -610,35 +819,50 @@ module PTY
     end
   
     module Terminate
-      # Cleans up resources cleanly and forces blocking loops to break immediately
-      def terminate
-        if process = @process
-          Process.signal(Signal::KILL, process.pid) rescue nil
-          process.wait rescue nil
-          @process = nil
+      def terminate : Nil
+        # 1. Immediately toggle the active lifecycle flags locklessly
+        @reader_active.set(false)
+      
+        # 2. Break the kernel read lock by forcefully closing the master I/O loop first
+        if io = @master_io
+          begin
+            # Force raw unbuffered file descriptor closure to ensure immediate wake up
+            io.close unless io.closed?
+          rescue
+          ensure
+            @master_io = nil
+          end
         end
       
-        cleanup_streams
-      end
+        # 3. Give the background scheduler a brief microsecond slice to drop suspended fibers
+        Fiber.yield
       
-      # Close the PTY handles to completely unblock the asynchronous read fiber loop
-      private def cleanup_streams
-        @master_io.try(&.close)
-        @master_io = nil
-        @started.set(false)
-      end
-      
-      def alive? : Bool
-        if process = @process
-          !process.exists? || process.terminated? ? false : true
-        else
-          false
+        # 4. Clean up and reap the child process handle without blocking deadlocks
+        if proc = @process
+          begin
+            # Check if the process handle has already finished natively via the EOF cascade
+            unless proc.terminated?
+              proc.signal(Signal::TERM) rescue nil
+              
+              # Guard the wait call with a short non-blocking sleep retry matrix
+              start_wait = Time.monotonic
+              while !proc.terminated? && (Time.monotonic - start_wait) < 50.milliseconds
+                Fiber.yield
+              end
+              
+              # If it still resists, apply a terminal KILL strike
+              if !proc.terminated?
+                proc.signal(Signal::KILL) rescue nil
+              end
+            end
+            
+            # Final non-blocking reap to clear zombie states safely
+            proc.wait rescue nil
+          rescue
+          ensure
+            @process = nil
+          end
         end
-      end
-      
-      # Returns whether the pseudo-terminal descriptors have been booted
-      def started? : Bool
-        @started.get
       end
     end
   
@@ -651,12 +875,25 @@ module PTY
         start_time = Time.instant
         local_buffer = ""
       
+        p "in #wait_for"
         add_queue do |queue|
+          debug_log("wait_for Engine Initialized", {
+            tracking_target: target,
+            timeout_threshold: timeout,
+            queue_object_id: queue.object_id
+          })
+      
           loop do
             # 1. Enforce strict timeout thresholds
             if start_time.elapsed > timeout
               raise TimeoutError.new("Timed out waiting for '#{target}'")
             end
+      
+            debug_log("wait_for Iteration Guard Pass", {
+              elapsed_seconds: start_time.elapsed.to_f,
+              reader_active_state: @reader_active.get,
+              backlogged_queue_elements: queue.size
+            })
       
             # 2. Check for unexpected upstream pipe closures
             if !@reader_active.get && queue.size == 0
@@ -669,11 +906,22 @@ module PTY
             case message
             in String
               local_buffer += message
+      
+              debug_log("wait_for Received Data String", {
+                arrived_chunk: message,
+                updated_local_buffer: local_buffer,
+                match_detected: local_buffer.includes?(target)
+              })
               # 4. Perform the boundary scan against the rolling localized context window
               if local_buffer.includes?(target)
                 break
               end
             in Symbol
+              debug_log("wait_for Intercepted Control Signal", {
+                control_token: message,
+                remaining_elements_to_drain: queue.size
+              })
+      
               case message
               when :session_closed && queue.size == 0
                 break
@@ -731,5 +979,7 @@ module PTY
     include Write
     include Resize
     include Terminate
+    include DebugLog
+    include Questions
   end
 end

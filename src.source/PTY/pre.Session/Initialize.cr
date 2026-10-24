@@ -8,7 +8,7 @@ def initialize(
   @cwd : String? = nil
 )
   @started = Atomic(Bool).new(false)
-  @ingest_queue = PTY::Queue(String).new
+  @ingest_queue = PTY::Queue(String | Symbol).new
   @subscribers = Set(PTY::Queue(String | Symbol)).new
   @subscribers_mutex = Sync::Mutex.new
 
@@ -27,7 +27,7 @@ def initialize(
   @cwd : String? = nil
 )
   @started = Atomic(Bool).new(false)
-  @ingest_queue = PTY::Queue(String).new
+  @ingest_queue = PTY::Queue(String | Symbol).new
   @subscribers = Set(PTY::Queue(String | Symbol)).new
   @subscribers_mutex = Sync::Mutex.new
 

@@ -31,3 +31,5 @@ include WaitFor
 include Write
 include Resize
 include Terminate
+include DebugLog
+include Questions
