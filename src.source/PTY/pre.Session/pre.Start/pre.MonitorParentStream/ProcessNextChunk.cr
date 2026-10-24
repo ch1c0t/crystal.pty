@@ -4,9 +4,8 @@ private def process_next_chunk(chunk : String)
 
   # Broadcast a copy of the chunk to every active listener queue safely
   @subscribers_mutex.synchronize do
-    p "in #process_next_chunk"
     # Replace raw distribution inspection with:
-    debug_log("Distribution Engine Fan-Out", {
+    debug_log("process_next_chunk :: Distribution Fan-Out", {
       active_subscribers: @subscribers.size,
       fanning_chunk: chunk
     })
