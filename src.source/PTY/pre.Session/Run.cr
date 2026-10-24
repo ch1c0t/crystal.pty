@@ -6,12 +6,11 @@ def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionR
   initial_snapshot_size = add_queue do |run_queue|
     dispatch_sandwich_commands(command_string, start_sentinel, end_sentinel)
 
-    p "in #run"
     loop do
       message = run_queue.pop
       case message
       in String
-        debug_log("#run String", {
+        debug_log("run :: String Message", {
           message_chunk: message,
           total_accumulated_bytes: captured_text.bytesize
         })
@@ -22,11 +21,10 @@ def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionR
         # FIX: Validate the end_sentinel is followed by an evaluated integer digit layout (__\d+__)
         # instead of a raw literal shell macro variable (__$?__), ensuring we never stop inside the input echo phase!
         if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
-          p "command_sandwich_complete"
           break
         end
       in Symbol
-        debug_log("#run Symbol", {
+        debug_log("run :: Control Message", {
           event_token: message
         })
 
