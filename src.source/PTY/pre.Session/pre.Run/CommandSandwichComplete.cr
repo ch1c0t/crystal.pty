@@ -1,7 +1,8 @@
 # Checks if the full execution transcript sandwich has successfully concluded
 private def command_sandwich_complete?(buffer : String, start_sentinel : String, end_sentinel : String) : Bool
-  # Prefer the marker printed by the shell over the one echoed as input.
+  # 1. Locate where the literal sentinels begin in the stream
   start_idx = buffer.rindex(start_sentinel)
+  # FIX: Locate the LAST (most recent) occurrence of the end sentinel string
   end_idx = buffer.rindex(end_sentinel)
 
   debug_log("command_sandwich_complete? :: Sandwich Index Scan", {
@@ -12,13 +13,17 @@ private def command_sandwich_complete?(buffer : String, start_sentinel : String,
 
   return false unless start_idx && end_idx && end_idx > start_idx
 
+  # 2. Extract the sliding window immediately following the end sentinel
   suffix = buffer[end_idx + end_sentinel.bytesize..-1]
+
   debug_log("command_sandwich_complete? :: Trailer Sliced Suffix", {
     extracted_suffix: suffix,
     starts_with_double_underscore: suffix.starts_with?("__")
   })
-
+  
+  # 3. Validate the structure of the evaluated trailing exit code block
   evaluation_result = extract_status_suffix(suffix)
+
   debug_log("command_sandwich_complete? :: Completeness Evaluation", {
     is_command_completely_finished: evaluation_result
   })
@@ -29,7 +34,8 @@ end
 # Validates the "__STATUS__" wrapping envelope format without using regex
 private def extract_status_suffix(suffix : String) : Bool
   return false unless suffix.starts_with?("__")
-
+  
+  # Find the closing underscore delimiter, skipping the first two opening characters
   if closing_underscore_idx = suffix.index("__", 2)
     status_digits = suffix[2...closing_underscore_idx]
 
@@ -46,5 +52,6 @@ end
 
 # Ensures the token consists strictly of evaluated digits, ignoring the literal "__$?__" echo
 private def valid_status_digits?(digits : String) : Bool
+  # FIX: Chain `.chars` or `.each_char` before invoking `.all?`
   !digits.empty? && digits.chars.all?(&.ascii_number?)
 end

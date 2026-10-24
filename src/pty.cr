@@ -355,7 +355,7 @@ module PTY
 
                 debug_log("extract_status_code :: Status Digits Extracted", {
                   status_digits: status_digits,
-                  is_numeric: !status_digits.empty? && status_digits.chars.all?(&.ascii_number?)
+                  is_numeric: status_digits.chars.all?(&.ascii_number?)
                 })
 
                 if !status_digits.empty? && status_digits.chars.all?(&.ascii_number?)

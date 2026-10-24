@@ -18,6 +18,8 @@ def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionR
         captured_text += message
         stream_callback.call(message)
 
+        # FIX: Validate the end_sentinel is followed by an evaluated integer digit layout (__\d+__)
+        # instead of a raw literal shell macro variable (__$?__), ensuring we never stop inside the input echo phase!
         if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
           break
         end
@@ -28,29 +30,33 @@ def run(command_string : String, &stream_callback : String ->) : PTY::ExecutionR
 
         case message
         when :session_closed
-          break
+          break # Main process died, exit instantly
         when :stream_idle
+          # The OS buffer is temporarily empty. Check if we already have the payload
           # Input echo can contain both sentinels before the command has finished.
           # Only stop when the end marker has an evaluated numeric exit status.
           if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
             break
           end
         when :subscriber_detached, :command_timeout
-          break
+          break # Escape the blocking pop loop to prevent a permanent freeze
         end
       end
     end
   end
 
+
+  # Extract clean results out of the sandboxed boundaries
   harvest_execution_block(
-    initial_snapshot_size,
-    command_string,
-    start_sentinel,
-    end_sentinel,
+    initial_snapshot_size, 
+    command_string, 
+    start_sentinel, 
+    end_sentinel, 
     captured_text
   )
 end
 
+# Overload matching block-less execution requests
 def run(command_string : String) : PTY::ExecutionResult
   run(command_string) { |_chunk| }
 end
