@@ -184,14 +184,14 @@ module PTY
         # Prefix every event with its method so concurrent traces are easy to scan.
         method, separator, event = prefix.partition(" :: ")
         indent = "  "
-
+      
         body = case data
                when String
                  data.inspect
                else
                  data.map { |k, v| "\n#{indent}#{indent}#{k}: #{v.inspect}" }.join
                end
-
+      
         method_label = separator.empty? ? "unknown" : method
         event_label = separator.empty? ? prefix : event
         STDERR.puts "\e[36m[PTY DEBUG]\e[0m \e[35m[#{method_label}]\e[0m \e[33m[#{event_label}]\e[0m#{body}\n"
@@ -391,24 +391,6 @@ module PTY
             end
             nil
           end
-          
-          # private def isolate_sandboxed_payload(transcript : String, start_sentinel : String, end_sentinel : String) : String?
-          #   # FIX: Switch from .index to .rindex for the start sentinel!
-          #   # This skips past the raw shell input echo row entirely and finds where the actual output starts.
-          #   start_pos = transcript.rindex(start_sentinel)
-          #   end_pos = transcript.rindex(end_sentinel)
-          #
-          #   debug_log("isolate_sandboxed_payload :: Boundary Slice Mapping", {
-          #     start_pos: start_pos,
-          #     end_pos: end_pos
-          #   })
-          #
-          #   if start_pos && end_pos && end_pos > start_pos
-          #     # Slice the text starting after the end of the second (output) start sentinel
-          #     return transcript[start_pos + start_sentinel.bytesize...end_pos]
-          #   end
-          #   nil
-          # end
         end
       
         module StripTerminalNoise
