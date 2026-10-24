@@ -1,0 +1,328 @@
+In src/pty.cr:826:33
+
+ 826 | start_wait = Time.monotonic
+                         ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+In src/pty.cr:827:48
+
+ 827 | while !proc.terminated? && (Time.monotonic - start_wait) < 50.milliseconds
+                                        ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+A total of 2 warnings were found.
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Triggered][0m
+    target_shell: "/bin/sh"
+    dimensions: "24 rows x 80 columns"
+    working_dir: nil
+    custom_env: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Fork Handshake Successful][0m
+    allocated_child_pid: 24414
+    master_fd: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Background Workers Spawned][0m
+    reader_active_flag: true
+    ingest_queue_object_id: 140490370468720
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Initial Shell Settlement Sync Guard][0m
+    waiting_for_token: "$ "
+    current_history_size: 0
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Engine Initialized][0m
+    tracking_target: "$ "
+    timeout_threshold: 00:00:02
+    queue_object_id: 140490370468480
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 1.1672e-5
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 2
+    raw_payload: "$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "$ "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "$ "
+    updated_local_buffer: "$ "
+    match_detected: true
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Complete][0m
+    final_history_snapshot: "$ "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 37
+    raw_payload: "echo START_MARK_1792860460085_822\r\naw"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 90
+    raw_payload: "k 'BEGIN { print \"double-quotes-inside-single\" }'\r\necho END_MARK_1792860460085_822__$?__\r\n"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 32
+    raw_payload: "START_MARK_1792860460085_822\r\n$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "echo START_MARK_1792860460085_822\r\naw"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "k 'BEGIN { print \"double-quotes-inside-single\" }'\r\necho END_MARK_1792860460085_822__$?__\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "START_MARK_1792860460085_822\r\n$ "
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "echo START_MARK_1792860460085_822\r\naw"
+    total_accumulated_bytes: 0
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: nil
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "k 'BEGIN { print \"double-quotes-inside-single\" }'\r\necho END_MARK_1792860460085_822__$?__\r\n"
+    total_accumulated_bytes: 37
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 93
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__$?__\r\n"
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "$?"
+    is_strictly_numeric: false
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "START_MARK_1792860460085_822\r\n$ "
+    total_accumulated_bytes: 127
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 93
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__$?__\r\nSTART_MARK_1792860460085_822\r\n$ "
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "$?"
+    is_strictly_numeric: false
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: false
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 29
+    raw_payload: "double-quotes-inside-single\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "double-quotes-inside-single\r\n"
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "double-quotes-inside-single\r\n"
+    total_accumulated_bytes: 159
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 93
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__$?__\r\nSTART_MARK_1792860460085_822\r\n$ double-quotes-inside-single\r\n"
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "$?"
+    is_strictly_numeric: false
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: false
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 2
+    raw_payload: "$ "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 35
+    raw_payload: "END_MARK_1792860460085_822__0__\r\n$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "END_MARK_1792860460085_822__0__\r\n$ "
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "$ "
+    total_accumulated_bytes: 188
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 93
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__$?__\r\nSTART_MARK_1792860460085_822\r\n$ double-quotes-inside-single\r\n$ "
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "$?"
+    is_strictly_numeric: false
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "END_MARK_1792860460085_822__0__\r\n$ "
+    total_accumulated_bytes: 190
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 190
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__0__\r\n$ "
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "0"
+    is_strictly_numeric: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: true
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Invoked][0m
+    snapshot_index: 2
+    transcript_bytesize: 225
+    captured_text_bytesize: 225
+[36m[PTY DEBUG][0m [35m[extract_status_code][0m [33m[Status Digits Extracted][0m
+    status_digits: "0"
+    is_numeric: true
+[36m[PTY DEBUG][0m [35m[isolate_sandboxed_payload][0m [33m[Boundary Slice Mapping][0m
+    start_pos: 5
+    end_pos: 190
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Completed Evaluation][0m
+    final_cleaned_output: "awk 'BEGIN { print \"double-quotes-inside-single\" }'\r\necho END_MARK_1792860460085_822__$?__\r\nSTART_MARK_1792860460085_822\r\n$ double-quotes-inside-single"
+    final_exit_status: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 19
+    raw_payload: "echo START_MARK_179"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 92
+    raw_payload: "2860460088_768\r\nprintf \"nested-'single'-quotes\\n\"\r\nSTART_MARK_1792860460088_768\r\necho END_MA"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 91
+    raw_payload: "RK_1792860460088_76$ 8__$?__\r\nnested-'single'-quotes\r\n$ END_MARK_1792860460088_768__0__\r\n$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "echo START_MARK_179"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "2860460088_768\r\nprintf \"nested-'single'-quotes\\n\"\r\nSTART_MARK_1792860460088_768\r\necho END_MA"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "RK_1792860460088_76$ 8__$?__\r\nnested-'single'-quotes\r\n$ END_MARK_1792860460088_768__0__\r\n$ "
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "echo START_MARK_179"
+    total_accumulated_bytes: 0
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: nil
+    end_sentinel_index: nil
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "2860460088_768\r\nprintf \"nested-'single'-quotes\\n\"\r\nSTART_MARK_1792860460088_768\r\necho END_MA"
+    total_accumulated_bytes: 19
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: nil
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "RK_1792860460088_76$ 8__$?__\r\nnested-'single'-quotes\r\n$ END_MARK_1792860460088_768__0__\r\n$ "
+    total_accumulated_bytes: 111
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 167
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__0__\r\n$ "
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "0"
+    is_strictly_numeric: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: true
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Invoked][0m
+    snapshot_index: 227
+    transcript_bytesize: 202
+    captured_text_bytesize: 202
+[36m[PTY DEBUG][0m [35m[extract_status_code][0m [33m[Status Digits Extracted][0m
+    status_digits: "0"
+    is_numeric: true
+[36m[PTY DEBUG][0m [35m[isolate_sandboxed_payload][0m [33m[Boundary Slice Mapping][0m
+    start_pos: 5
+    end_pos: 167
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Completed Evaluation][0m
+    final_cleaned_output: "printf \"nested-'single'-quotes\\n\"\r\nSTART_MARK_1792860460088_768\r\necho END_MARK_1792860460088_76$ 8__$?__\r\nnested-'single'-quotes"
+    final_exit_status: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 59
+    raw_payload: "echo START_MARK_1792860460089_711\r\necho \"step-1\" | awk '{ p"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 97
+    raw_payload: "rint $1 \"-and-step-2\" }'\r\nSTART_MARK_1792860460089_711\r\necho END_MARK_1792860$ 460089_711__$?__\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "echo START_MARK_1792860460089_711\r\necho \"step-1\" | awk '{ p"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "rint $1 \"-and-step-2\" }'\r\nSTART_MARK_1792860460089_711\r\necho END_MARK_1792860$ 460089_711__$?__\r\n"
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "echo START_MARK_1792860460089_711\r\necho \"step-1\" | awk '{ p"
+    total_accumulated_bytes: 0
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: nil
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "rint $1 \"-and-step-2\" }'\r\nSTART_MARK_1792860460089_711\r\necho END_MARK_1792860$ 460089_711__$?__\r\n"
+    total_accumulated_bytes: 59
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: nil
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 19
+    raw_payload: "step-1-and-step-2\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "step-1-and-step-2\r\n"
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "step-1-and-step-2\r\n"
+    total_accumulated_bytes: 156
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: nil
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 2
+    raw_payload: "$ "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 35
+    raw_payload: "END_MARK_1792860460089_711__0__\r\n$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "END_MARK_1792860460089_711__0__\r\n$ "
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "$ "
+    total_accumulated_bytes: 175
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: nil
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "END_MARK_1792860460089_711__0__\r\n$ "
+    total_accumulated_bytes: 177
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 177
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__0__\r\n$ "
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "0"
+    is_strictly_numeric: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: true
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Invoked][0m
+    snapshot_index: 429
+    transcript_bytesize: 212
+    captured_text_bytesize: 212
+[36m[PTY DEBUG][0m [35m[extract_status_code][0m [33m[Status Digits Extracted][0m
+    status_digits: "0"
+    is_numeric: true
+[36m[PTY DEBUG][0m [35m[isolate_sandboxed_payload][0m [33m[Boundary Slice Mapping][0m
+    start_pos: 5
+    end_pos: 177
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Completed Evaluation][0m
+    final_cleaned_output: "echo \"step-1\" | awk '{ print $1 \"-and-step-2\" }'\r\nSTART_MARK_1792860460089_711\r\necho END_MARK_1792860$ 460089_711__$?__\r\nstep-1-and-step-2"
+    final_exit_status: 0
+.
+
+Finished in 56.99 milliseconds
+1 examples, 0 failures, 0 errors, 0 pending

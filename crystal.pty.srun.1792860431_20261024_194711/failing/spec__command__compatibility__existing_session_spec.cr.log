@@ -1,0 +1,135 @@
+In src/pty.cr:826:33
+
+ 826 | start_wait = Time.monotonic
+                         ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+In src/pty.cr:827:48
+
+ 827 | while !proc.terminated? && (Time.monotonic - start_wait) < 50.milliseconds
+                                        ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+A total of 2 warnings were found.
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Triggered][0m
+    target_shell: "/bin/sh"
+    dimensions: "24 rows x 80 columns"
+    working_dir: nil
+    custom_env: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Fork Handshake Successful][0m
+    allocated_child_pid: 23939
+    master_fd: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Background Workers Spawned][0m
+    reader_active_flag: true
+    ingest_queue_object_id: 139628925225840
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Initial Shell Settlement Sync Guard][0m
+    waiting_for_token: "$ "
+    current_history_size: 0
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Engine Initialized][0m
+    tracking_target: "$ "
+    timeout_threshold: 00:00:02
+    queue_object_id: 139628925225600
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 2.116e-5
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 2
+    raw_payload: "$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "$ "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "$ "
+    updated_local_buffer: "$ "
+    match_detected: true
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Complete][0m
+    final_history_snapshot: "$ "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 55
+    raw_payload: "echo START_MARK_1792860438966_171\r\nprintf 'command-api'"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 49
+    raw_payload: "; exit 7\r\necho END_MARK_1792860438966_171__$?__\r\n"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 43
+    raw_payload: "START_MARK_1792860438966_171\r\n$ command-api"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "echo START_MARK_1792860438966_171\r\nprintf 'command-api'"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "; exit 7\r\necho END_MARK_1792860438966_171__$?__\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "START_MARK_1792860438966_171\r\n$ command-api"
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "echo START_MARK_1792860438966_171\r\nprintf 'command-api'"
+    total_accumulated_bytes: 0
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: nil
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "; exit 7\r\necho END_MARK_1792860438966_171__$?__\r\n"
+    total_accumulated_bytes: 55
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 70
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__$?__\r\n"
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "$?"
+    is_strictly_numeric: false
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "START_MARK_1792860438966_171\r\n$ command-api"
+    total_accumulated_bytes: 104
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 70
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__$?__\r\nSTART_MARK_1792860438966_171\r\n$ command-api"
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "$?"
+    is_strictly_numeric: false
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[Control Message][0m
+    event_token: :session_closed
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Invoked][0m
+    snapshot_index: 2
+    transcript_bytesize: 147
+    captured_text_bytesize: 147
+[36m[PTY DEBUG][0m [35m[extract_status_code][0m [33m[Status Digits Extracted][0m
+    status_digits: "$?"
+    is_numeric: false
+[36m[PTY DEBUG][0m [35m[isolate_sandboxed_payload][0m [33m[Boundary Slice Mapping][0m
+    start_pos: 5
+    end_pos: 70
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Completed Evaluation][0m
+    final_cleaned_output: "printf 'command-api'; exit 7\r\necho"
+    final_exit_status: 0
+F
+
+Failures:
+
+  1) PTY::Command accepts an existing Session as the second constructor argument
+     Failure/Error: exit_code.should eq(7)
+
+       Expected: 7
+            got: 0
+
+     # spec/command/compatibility/existing_session_spec.cr:16
+
+Finished in 2.36 milliseconds
+1 examples, 1 failures, 0 errors, 0 pending
+
+Failed examples:
+
+crystal spec spec/command/compatibility/existing_session_spec.cr:5 # PTY::Command accepts an existing Session as the second constructor argument

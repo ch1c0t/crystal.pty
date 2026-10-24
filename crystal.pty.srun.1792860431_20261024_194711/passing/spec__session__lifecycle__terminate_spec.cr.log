@@ -1,0 +1,286 @@
+In src/pty.cr:826:33
+
+ 826 | start_wait = Time.monotonic
+                         ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+In src/pty.cr:827:48
+
+ 827 | while !proc.terminated? && (Time.monotonic - start_wait) < 50.milliseconds
+                                        ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+A total of 2 warnings were found.
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Triggered][0m
+    target_shell: "/bin/sh -c 'sleep 30'"
+    dimensions: "24 rows x 80 columns"
+    working_dir: nil
+    custom_env: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Fork Handshake Successful][0m
+    allocated_child_pid: 24557
+    master_fd: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Background Workers Spawned][0m
+    reader_active_flag: true
+    ingest_queue_object_id: 140048417926000
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Initial Shell Settlement Sync Guard][0m
+    waiting_for_token: "$ "
+    current_history_size: 0
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Engine Initialized][0m
+    tracking_target: "$ "
+    timeout_threshold: 00:00:02
+    queue_object_id: 140048417925760
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 1.1402e-5
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 1
+    raw_payload: "E"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "E"
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "E"
+    updated_local_buffer: "E"
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.000456679
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 61
+    raw_payload: "Invalid memory access (signal 11) at address 0x7f5f84021278\r\n"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 17
+    raw_payload: "[0x557b878eef5a] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "Invalid memory access (signal 11) at address 0x7f5f84021278\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "[0x557b878eef5a] "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "Invalid memory access (signal 11) at address 0x7f5f84021278\r\n"
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n"
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.018346377
+    reader_active_state: true
+    backlogged_queue_elements: 1
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "[0x557b878eef5a] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.018379169
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 114
+    raw_payload: "*Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "*Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "*Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.018503793
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 206
+    raw_payload: "~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.018677379
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 84
+    raw_payload: "GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 68
+    raw_payload: "GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 17
+    raw_payload: "[0x557b87a20cad] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "[0x557b87a20cad] "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.018873658
+    reader_active_state: true
+    backlogged_queue_elements: 2
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n"
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n"
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.018982673
+    reader_active_state: true
+    backlogged_queue_elements: 1
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "[0x557b87a20cad] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.019078594
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 272
+    raw_payload: "?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 86
+    raw_payload: "GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.019382184
+    reader_active_state: true
+    backlogged_queue_elements: 1
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.019517078
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 286
+    raw_payload: "GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 89
+    raw_payload: "__crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "__crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.019820448
+    reader_active_state: true
+    backlogged_queue_elements: 1
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "__crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] __crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.019998874
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 537
+    raw_payload: "*Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 118
+    raw_payload: "*Exception::CallStack::load_debug_info_impl:Nil +80 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea223] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "*Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "*Exception::CallStack::load_debug_info_impl:Nil +80 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea223] "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "*Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] __crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] *Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.020463948
+    reader_active_state: true
+    backlogged_queue_elements: 1
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "*Exception::CallStack::load_debug_info_impl:Nil +80 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea223] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] __crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] *Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] *Exception::CallStack::load_debug_info_impl:Nil +80 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea223] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.020738534
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 851
+    raw_payload: "*Exception::CallStack::load_debug_info:Nil +547 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e6e] *Exception::CallStack#decode_backtrace:Array(String) +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e42] *Exception::CallStack#printable_backtrace:Array(String) +50 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931bbd] *Exception+ +77 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931a39] *Exception+ +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8791802f] *Crystal::buffered_message:exception:backtrace<String, String, Exception+, Nil>:IO::Memory +2175 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b879181d0] *Crystal::print_buffered:exception:to<String, String, Exception+, IO::FileDescriptor>:Nil +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87911db2] "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 86
+    raw_payload: "*Fiber#run:Nil +354 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad286] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "*Exception::CallStack::load_debug_info:Nil +547 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e6e] *Exception::CallStack#decode_backtrace:Array(String) +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e42] *Exception::CallStack#printable_backtrace:Array(String) +50 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931bbd] *Exception+ +77 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931a39] *Exception+ +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8791802f] *Crystal::buffered_message:exception:backtrace<String, String, Exception+, Nil>:IO::Memory +2175 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b879181d0] *Crystal::print_buffered:exception:to<String, String, Exception+, IO::FileDescriptor>:Nil +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87911db2] "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "*Fiber#run:Nil +354 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad286] "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "*Exception::CallStack::load_debug_info:Nil +547 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e6e] *Exception::CallStack#decode_backtrace:Array(String) +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e42] *Exception::CallStack#printable_backtrace:Array(String) +50 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931bbd] *Exception+ +77 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931a39] *Exception+ +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8791802f] *Crystal::buffered_message:exception:backtrace<String, String, Exception+, Nil>:IO::Memory +2175 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b879181d0] *Crystal::print_buffered:exception:to<String, String, Exception+, IO::FileDescriptor>:Nil +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87911db2] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] __crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] *Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] *Exception::CallStack::load_debug_info_impl:Nil +80 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea223] *Exception::CallStack::load_debug_info:Nil +547 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e6e] *Exception::CallStack#decode_backtrace:Array(String) +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e42] *Exception::CallStack#printable_backtrace:Array(String) +50 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931bbd] *Exception+ +77 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931a39] *Exception+ +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8791802f] *Crystal::buffered_message:exception:backtrace<String, String, Exception+, Nil>:IO::Memory +2175 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b879181d0] *Crystal::print_buffered:exception:to<String, String, Exception+, IO::FileDescriptor>:Nil +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87911db2] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.021413593
+    reader_active_state: true
+    backlogged_queue_elements: 1
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "*Fiber#run:Nil +354 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad286] "
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] __crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] *Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] *Exception::CallStack::load_debug_info_impl:Nil +80 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea223] *Exception::CallStack::load_debug_info:Nil +547 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e6e] *Exception::CallStack#decode_backtrace:Array(String) +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e42] *Exception::CallStack#printable_backtrace:Array(String) +50 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931bbd] *Exception+ +77 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931a39] *Exception+ +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8791802f] *Crystal::buffered_message:exception:backtrace<String, String, Exception+, Nil>:IO::Memory +2175 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b879181d0] *Crystal::print_buffered:exception:to<String, String, Exception+, IO::FileDescriptor>:Nil +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87911db2] *Fiber#run:Nil +354 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad286] "
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.021786865
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 86
+    raw_payload: "~proc2Proc(Fiber, Nil) +6 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x0] ???\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "~proc2Proc(Fiber, Nil) +6 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x0] ???\r\n"
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "~proc2Proc(Fiber, Nil) +6 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x0] ???\r\n"
+    updated_local_buffer: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] __crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] *Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] *Exception::CallStack::load_debug_info_impl:Nil +80 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea223] *Exception::CallStack::load_debug_info:Nil +547 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e6e] *Exception::CallStack#decode_backtrace:Array(String) +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e42] *Exception::CallStack#printable_backtrace:Array(String) +50 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931bbd] *Exception+ +77 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931a39] *Exception+ +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8791802f] *Crystal::buffered_message:exception:backtrace<String, String, Exception+, Nil>:IO::Memory +2175 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b879181d0] *Crystal::print_buffered:exception:to<String, String, Exception+, IO::FileDescriptor>:Nil +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87911db2] *Fiber#run:Nil +354 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad286] ~proc2Proc(Fiber, Nil) +6 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x0] ???\r\n"
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.022636111
+    reader_active_state: false
+    backlogged_queue_elements: 1
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Control Signal][0m
+    control_token: :session_closed
+    remaining_elements_to_drain: 0
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.022653033
+    reader_active_state: false
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Complete][0m
+    final_history_snapshot: "EInvalid memory access (signal 11) at address 0x7f5f84021278\r\n[0x557b878eef5a] *Exception::CallStack::print_backtrace:Nil +122 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad4e6] ~procProc(Int32, Pointer(LibC::SiginfoT), Pointer(Void), Nil) +278 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x7f5f9048dd70] ?? +140048419315056 in /lib/x86_64-linux-gnu/libc.so.6\r\n[0x557b87a28388] GC_mark_from +696 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a27be3] GC_mark_some +1043 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20cad] ?? +93989044882605 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a20a79] GC_try_to_collect_inner +329 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a22140] GC_collect_or_expand +208 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a25ebe] GC_alloc_large +222 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a2648b] GC_generic_malloc +315 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87a26601] GC_malloc_kind_global +225 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878f2230] *GC::malloc<UInt64>:Pointer(Void) +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8787709e] __crystal_malloc64 +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87957609] *Pointer(Tuple(Tuple(UInt64, UInt64, Pointer(UInt8)), Tuple(UInt64, UInt64))) +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87941363] *Crystal::DWARF::Backtraces#preload_function_names:Nil +18915 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8793c96a] *Crystal::DWARF::Backtraces#build_caches:Nil +10 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ed5ec] *Exception::CallStack::preload_dwarf_sections<Crystal::System::ELF>:Nil +12588 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea400] *Exception::CallStack::load_debug_info_impl:Nil +80 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ea223] *Exception::CallStack::load_debug_info:Nil +547 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e6e] *Exception::CallStack#decode_backtrace:Array(String) +14 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878e9e42] *Exception::CallStack#printable_backtrace:Array(String) +50 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931bbd] *Exception+ +77 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87931a39] *Exception+ +105 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b8791802f] *Crystal::buffered_message:exception:backtrace<String, String, Exception+, Nil>:IO::Memory +2175 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b879181d0] *Crystal::print_buffered:exception:to<String, String, Exception+, IO::FileDescriptor>:Nil +64 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b87911db2] *Fiber#run:Nil +354 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x557b878ad286] ~proc2Proc(Fiber, Nil) +6 in /home/om/.cache/crystal/crystal-run-spec.tmp\r\n[0x0] ???\r\n"
+.
+
+Finished in 23.46 milliseconds
+1 examples, 0 failures, 0 errors, 0 pending
