@@ -474,7 +474,7 @@ module PTY
                 break # Main process died, exit instantly
               when :stream_idle
                 # Input echo can contain both sentinels before the command has finished.
-                # Only stop once the end marker carries a numeric exit status.
+                # Only stop when the end marker has an evaluated numeric exit status.
                 if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
                   break
                 end
