@@ -5,7 +5,7 @@ private def extract_status_code(transcript : String, end_sentinel : String) : In
     if suffix.starts_with?("__") && (closing_idx = suffix.index("__", 2))
       status_digits = suffix[2...closing_idx]
       
-      debug_log("Harvester Status Digits Extracted", {
+      debug_log("extract_status_code :: Status Digits Extracted", {
         status_digits: status_digits,
         is_numeric: status_digits.chars.all?(&.ascii_number?)
       })
