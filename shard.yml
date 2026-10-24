@@ -4,8 +4,6 @@ version: 0.1.0
 authors:
 - Anatoly Chernov <chertoly@gmail.com>
 targets:
-  crystal.pty:
-    main: src/bin/crystal.pty.cr
   srun:
     main: src/bin/srun.cr
 crystal: ">= 1.15.1"
