@@ -1,0 +1,132 @@
+In src/pty.cr:821:33
+
+ 821 | start_wait = Time.monotonic
+                         ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+In src/pty.cr:822:48
+
+ 822 | while !proc.terminated? && (Time.monotonic - start_wait) < 50.milliseconds
+                                        ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+A total of 2 warnings were found.
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Triggered][0m
+    target_shell: "/bin/sh"
+    dimensions: "24 rows x 80 columns"
+    working_dir: "/tmp"
+    custom_env: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Fork Handshake Successful][0m
+    allocated_child_pid: 32229
+    master_fd: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Background Workers Spawned][0m
+    reader_active_flag: true
+    ingest_queue_object_id: 140662358268784
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Initial Shell Settlement Sync Guard][0m
+    waiting_for_token: "$ "
+    current_history_size: 0
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Engine Initialized][0m
+    tracking_target: "$ "
+    timeout_threshold: 00:00:02
+    queue_object_id: 140662358268544
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 1.6391e-5
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 2
+    raw_payload: "$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "$ "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "$ "
+    updated_local_buffer: "$ "
+    match_detected: true
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Complete][0m
+    final_history_snapshot: "$ "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 88
+    raw_payload: "echo START_MARK_1792869213965_979; ( \r\npwd\r\n); echo END_MARK_1792869213965_979__$?__\r\n> "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 32
+    raw_payload: "> START_MARK_1792869213965_979\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "echo START_MARK_1792869213965_979; ( \r\npwd\r\n); echo END_MARK_1792869213965_979__$?__\r\n> "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "> START_MARK_1792869213965_979\r\n"
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "echo START_MARK_1792869213965_979; ( \r\npwd\r\n); echo END_MARK_1792869213965_979__$?__\r\n> "
+    total_accumulated_bytes: 0
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 5
+    end_sentinel_index: 52
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__$?__\r\n> "
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "$?"
+    is_strictly_numeric: false
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: false
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "> START_MARK_1792869213965_979\r\n"
+    total_accumulated_bytes: 88
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 90
+    end_sentinel_index: 52
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 6
+    raw_payload: "/tmp\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "/tmp\r\n"
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "/tmp\r\n"
+    total_accumulated_bytes: 120
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 90
+    end_sentinel_index: 52
+    valid_chronological_order: false
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 35
+    raw_payload: "END_MARK_1792869213965_979__0__\r\n$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "END_MARK_1792869213965_979__0__\r\n$ "
+[36m[PTY DEBUG][0m [35m[run][0m [33m[String Message][0m
+    message_chunk: "END_MARK_1792869213965_979__0__\r\n$ "
+    total_accumulated_bytes: 126
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Sandwich Index Scan][0m
+    start_sentinel_index: 90
+    end_sentinel_index: 126
+    valid_chronological_order: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Trailer Sliced Suffix][0m
+    extracted_suffix: "__0__\r\n$ "
+    starts_with_double_underscore: true
+[36m[PTY DEBUG][0m [35m[extract_status_suffix][0m [33m[Exit Token Isolated][0m
+    isolated_digits: "0"
+    is_strictly_numeric: true
+[36m[PTY DEBUG][0m [35m[command_sandwich_complete?][0m [33m[Completeness Evaluation][0m
+    is_command_completely_finished: true
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Invoked][0m
+    snapshot_index: 2
+    transcript_bytesize: 161
+    captured_text_bytesize: 161
+[36m[PTY DEBUG][0m [35m[extract_status_code][0m [33m[Status Digits Extracted][0m
+    status_digits: "0"
+    is_numeric: true
+[36m[PTY DEBUG][0m [35m[isolate_sandboxed_payload][0m [33m[Boundary Slice Mapping][0m
+    start_pos: 90
+    end_pos: 126
+[36m[PTY DEBUG][0m [35m[harvest_execution_block][0m [33m[Completed Evaluation][0m
+    final_cleaned_output: "/tmp"
+    final_exit_status: 0
+.
+
+Finished in 52.46 milliseconds
+1 examples, 0 failures, 0 errors, 0 pending

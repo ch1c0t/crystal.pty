@@ -1,0 +1,97 @@
+In src/pty.cr:821:33
+
+ 821 | start_wait = Time.monotonic
+                         ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+In src/pty.cr:822:48
+
+ 822 | while !proc.terminated? && (Time.monotonic - start_wait) < 50.milliseconds
+                                        ^--------
+Warning: Deprecated Time.monotonic. Use `Time.instant` instead.
+
+A total of 2 warnings were found.
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Triggered][0m
+    target_shell: "/bin/sh"
+    dimensions: "24 rows x 80 columns"
+    working_dir: nil
+    custom_env: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Fork Handshake Successful][0m
+    allocated_child_pid: 31798
+    master_fd: nil
+[36m[PTY DEBUG][0m [35m[initialize_parent_proxy][0m [33m[Background Workers Spawned][0m
+    reader_active_flag: true
+    ingest_queue_object_id: 139661057854320
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Initial Shell Settlement Sync Guard][0m
+    waiting_for_token: "$ "
+    current_history_size: 0
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Engine Initialized][0m
+    tracking_target: "$ "
+    timeout_threshold: 00:00:02
+    queue_object_id: 139661057854080
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 1.3765e-5
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 2
+    raw_payload: "$ "
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "$ "
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "$ "
+    updated_local_buffer: "$ "
+    match_detected: true
+[36m[PTY DEBUG][0m [35m[start][0m [33m[Boot Sequence Complete][0m
+    final_history_snapshot: "$ "
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 89
+    raw_payload: "/bin/sh -c 'read first; read second; printf \"session-value:%s-%s\\n\" \"$first\" \"$second\"'\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 0
+    fanning_chunk: "/bin/sh -c 'read first; read second; printf \"session-value:%s-%s\\n\" \"$first\" \"$second\"'\r\n"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 12
+    raw_payload: "persistent\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 0
+    fanning_chunk: "persistent\r\n"
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Engine Initialized][0m
+    tracking_target: "session-value:persistent-state"
+    timeout_threshold: 00:00:02
+    queue_object_id: 139661057853936
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 1.9096e-5
+    reader_active_state: true
+    backlogged_queue_elements: 0
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 7
+    raw_payload: "state\r\n"
+[36m[PTY DEBUG][0m [35m[spawn_ingestion_loop][0m [33m[Received Data][0m
+    bytes_read: 32
+    raw_payload: "session-value:persistent-state\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "state\r\n"
+[36m[PTY DEBUG][0m [35m[process_next_chunk][0m [33m[Distribution Fan-Out][0m
+    active_subscribers: 1
+    fanning_chunk: "session-value:persistent-state\r\n"
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "state\r\n"
+    updated_local_buffer: "state\r\n"
+    match_detected: false
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Iteration Guard Pass][0m
+    elapsed_seconds: 0.000111961
+    reader_active_state: true
+    backlogged_queue_elements: 1
+[36m[PTY DEBUG][0m [35m[wait_for][0m [33m[Received Data][0m
+    arrived_chunk: "session-value:persistent-state\r\n"
+    updated_local_buffer: "state\r\nsession-value:persistent-state\r\n"
+    match_detected: true
+"before session.terminate"
+"before session.output"
+.
+
+Finished in 92.22 milliseconds
+1 examples, 0 failures, 0 errors, 0 pending
