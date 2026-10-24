@@ -20,7 +20,7 @@ module SRun
 
     def run : Int32
       started_at = Time.local
-      monotonic_start = Time.monotonic
+      monotonic_start = Time.instant
       directory_name = File.basename(Dir.current)
       directory_name = "root" if directory_name.empty?
       timestamp = started_at.to_s("%Y%m%d_%H%M%S")
@@ -59,13 +59,13 @@ module SRun
         results << result
 
         puts "  #{result.outcome}: #{spec} (#{result.elapsed_seconds.round(2)}s)"
-        elapsed = (Time.monotonic - monotonic_start).total_seconds
+        elapsed = (Time.instant - monotonic_start).total_seconds
         write_report(report_path, root_dir, started_at, @timeout_seconds, specs, results, elapsed)
       end
 
       passed = results.count { |result| result.outcome == "PASS" }
       failed = results.size - passed
-      elapsed = (Time.monotonic - monotonic_start).total_seconds
+      elapsed = (Time.instant - monotonic_start).total_seconds
 
       puts
       puts "srun finished: #{passed} passed, #{failed} failed, #{elapsed.round(2)}s"
@@ -83,7 +83,7 @@ module SRun
     ) : SpecResult
       filename = "#{spec.gsub("/", "__")}.log"
       failing_path = File.join(failing_dir, filename)
-      started = Time.monotonic
+      started = Time.instant
       exit_code = nil.as(Int32?)
 
       # GNU timeout runs each spec in its own process group so a timeout can
@@ -113,7 +113,7 @@ module SRun
         end
       end
 
-      elapsed = (Time.monotonic - started).total_seconds
+      elapsed = (Time.instant - started).total_seconds
       output = File.read(failing_path)
       timed_out = output.includes?("timeout: sending signal")
       outcome = if timed_out
