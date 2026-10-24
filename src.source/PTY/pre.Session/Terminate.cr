@@ -1,11 +1,19 @@
 def terminate : Nil
-  # 1. Immediately toggle the active lifecycle flags locklessly
   @reader_active.set(false)
 
-  # 2. Break the kernel read lock by forcefully closing the master I/O loop first
+  proc = @process
+  process_group_id = proc.try(&.pid)
+
+  # The PTY child starts a new session with its PID as its process-group ID.
+  # Signal the whole group before closing the master descriptor, so cleanup
+  # does not depend on the shell remaining alive.
+  if pgid = process_group_id
+    PTY::C.kill(-pgid, Signal::TERM.value)
+  end
+
+  # Close the master descriptor to unblock the reader loop.
   if io = @master_io
     begin
-      # Force raw unbuffered file descriptor closure to ensure immediate wake up
       io.close unless io.closed?
     rescue
     ensure
@@ -13,33 +21,25 @@ def terminate : Nil
     end
   end
 
-  # 3. Give the background scheduler a brief microsecond slice to drop suspended fibers
-  Fiber.yield
+  # Do not use proc.terminated? as the group-liveness check: the shell can
+  # exit while a descendant in the same process group continues running.
+  if pgid = process_group_id
+    term_started_at = Time.instant
+    while PTY::C.kill(-pgid, 0) == 0 && term_started_at.elapsed < 100.milliseconds
+      sleep(5.milliseconds)
+    end
 
-  # 4. Clean up and reap the child process handle without blocking deadlocks
-  if proc = @process
-    begin
-      # Check if the process handle has already finished natively via the EOF cascade
-      unless proc.terminated?
-        proc.signal(Signal::TERM) rescue nil
-        
-        # Guard the wait call with a short non-blocking sleep retry matrix
-        start_wait = Time.monotonic
-        while !proc.terminated? && (Time.monotonic - start_wait) < 50.milliseconds
-          Fiber.yield
-        end
-        
-        # If it still resists, apply a terminal KILL strike
-        if !proc.terminated?
-          proc.signal(Signal::KILL) rescue nil
-        end
-      end
-      
-      # Final non-blocking reap to clear zombie states safely
-      proc.wait rescue nil
-    rescue
-    ensure
-      @process = nil
+    # Escalate against the group even when its original leader has exited.
+    if PTY::C.kill(-pgid, 0) == 0
+      PTY::C.kill(-pgid, Signal::KILL.value)
     end
   end
+
+  Fiber.yield
+
+  if proc
+    proc.wait rescue nil
+  end
+
+  @process = nil
 end

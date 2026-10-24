@@ -1,9 +1,13 @@
 # Helper B: Light, GC-free execution boundary inside the cloned fork
-private def execute_child_sandbox(slave_fd : Int32, env_payload : Array(String), target_cwd : String?, target_shell : String) : NoReturn
+private def execute_child_sandbox(master_fd : Int32, slave_fd : Int32, env_payload : Array(String), target_cwd : String?, target_shell : String) : NoReturn
+  # The child must not retain the parent's PTY master descriptor. Keeping it
+  # open in the child can prevent expected PTY hangup/EOF behaviour.
+  PTY::C.close(master_fd)
+
   PTY::C.login_tty(slave_fd)
 
   # Direct POSIX LibC mutations skip high-level language object allocations
-  # 1. Apply environment variables using raw string copies 
+  # 1. Apply environment variables using raw string copies
   # without touching Crystal's heavy ENV wrapper object
   env_payload.each do |env_string|
     # Split out the key/value parts safely using primitive byte manipulation

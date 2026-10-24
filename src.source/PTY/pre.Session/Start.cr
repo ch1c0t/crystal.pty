@@ -26,7 +26,7 @@ def start : self
     raise "Error: OS process fork failed."
   elsif pid == 0
     # INSIDE CHILD
-    execute_child_sandbox(slave_fd, env_payload, target_cwd, target_shell)
+    execute_child_sandbox(master_fd, slave_fd, env_payload, target_cwd, target_shell)
   else
     # INSIDE PARENT
     initialize_parent_proxy(pid, slave_fd, master_fd)
