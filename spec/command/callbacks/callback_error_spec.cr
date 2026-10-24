@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Command do
   # A failing consumer must not strand the child or PTY reader; callers need

@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Command do
   # Terminal applications read their size through the TTY; this catches regressions

@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Session do
   # Explicit termination must close a running process group and unblock the

@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Session do
   it "isolates the command output perfectly and leaves no sentinel noise in result.output" do

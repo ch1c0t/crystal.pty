@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Session do
   it "robustly preserves nested single and double quotation marks inside a single interactive session" do

@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Command do
   # A failed exec must return a conventional shell status rather than hanging

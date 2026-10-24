@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Command do
   # Interactive tools inspect all three standard descriptors; each must point to

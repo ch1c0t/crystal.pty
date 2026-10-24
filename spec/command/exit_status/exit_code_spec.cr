@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Command do
   # Consumers use the real exit code to decide whether a command succeeded;
