@@ -5,7 +5,7 @@ private def command_sandwich_complete?(buffer : String, start_sentinel : String,
   # FIX: Locate the LAST (most recent) occurrence of the end sentinel string
   end_idx = buffer.rindex(end_sentinel)
 
-  debug_log("Sandwich Index Scan", {
+  debug_log("command_sandwich_complete? :: Sandwich Index Scan", {
     start_sentinel_index: start_idx,
     end_sentinel_index: end_idx,
     valid_chronological_order: (start_idx && end_idx ? end_idx > start_idx : false)
@@ -16,7 +16,7 @@ private def command_sandwich_complete?(buffer : String, start_sentinel : String,
   # 2. Extract the sliding window immediately following the end sentinel
   suffix = buffer[end_idx + end_sentinel.bytesize..-1]
 
-  debug_log("Sandwich Trailer Sliced Suffix", {
+  debug_log("command_sandwich_complete? :: Trailer Sliced Suffix", {
     extracted_suffix: suffix,
     starts_with_double_underscore: suffix.starts_with?("__")
   })
@@ -24,7 +24,7 @@ private def command_sandwich_complete?(buffer : String, start_sentinel : String,
   # 3. Validate the structure of the evaluated trailing exit code block
   evaluation_result = extract_status_suffix(suffix)
 
-  debug_log("Sandwich Completeness Evaluation Result", {
+  debug_log("command_sandwich_complete? :: Completeness Evaluation", {
     is_command_completely_finished: evaluation_result
   })
 
@@ -39,7 +39,7 @@ private def extract_status_suffix(suffix : String) : Bool
   if closing_underscore_idx = suffix.index("__", 2)
     status_digits = suffix[2...closing_underscore_idx]
 
-    debug_log("Sandwich Exit Token Isolated", {
+    debug_log("extract_status_suffix :: Exit Token Isolated", {
       isolated_digits: status_digits,
       is_strictly_numeric: valid_status_digits?(status_digits)
     })
