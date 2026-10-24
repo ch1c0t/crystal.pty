@@ -181,20 +181,20 @@ module PTY
     module DebugLog
       # A specialized multi-line formatter for high-concurrency stream tracing
       private def debug_log(prefix : String, data : NamedTuple | Hash | String)
-        # Standardize layout into clean indents
+        # Prefix every event with its method so concurrent traces are easy to scan.
+        method, separator, event = prefix.partition(" :: ")
         indent = "  "
-        
-        # Format the key/value payload cleanly
+
         body = case data
                when String
                  data.inspect
                else
-                 # Map NamedTuple or Hash keys line-by-line with deep indents
                  data.map { |k, v| "\n#{indent}#{indent}#{k}: #{v.inspect}" }.join
                end
-      
-        # Output to standard error so it never collides with standard output wires
-        STDERR.puts "\e[36m[PTY DEBUG]\e[0m \e[33m#{prefix}\e[0m#{body}\n"
+
+        method_label = separator.empty? ? "unknown" : method
+        event_label = separator.empty? ? prefix : event
+        STDERR.puts "\e[36m[PTY DEBUG]\e[0m \e[35m[#{method_label}]\e[0m \e[33m[#{event_label}]\e[0m#{body}\n"
       end
     end
   
@@ -271,7 +271,7 @@ module PTY
           # FIX: Locate the LAST (most recent) occurrence of the end sentinel string
           end_idx = buffer.rindex(end_sentinel)
         
-          debug_log("Sandwich Index Scan", {
+          debug_log("command_sandwich_complete? :: Sandwich Index Scan", {
             start_sentinel_index: start_idx,
             end_sentinel_index: end_idx,
             valid_chronological_order: (start_idx && end_idx ? end_idx > start_idx : false)
@@ -282,7 +282,7 @@ module PTY
           # 2. Extract the sliding window immediately following the end sentinel
           suffix = buffer[end_idx + end_sentinel.bytesize..-1]
         
-          debug_log("Sandwich Trailer Sliced Suffix", {
+          debug_log("command_sandwich_complete? :: Trailer Sliced Suffix", {
             extracted_suffix: suffix,
             starts_with_double_underscore: suffix.starts_with?("__")
           })
@@ -290,7 +290,7 @@ module PTY
           # 3. Validate the structure of the evaluated trailing exit code block
           evaluation_result = extract_status_suffix(suffix)
         
-          debug_log("Sandwich Completeness Evaluation Result", {
+          debug_log("command_sandwich_complete? :: Completeness Evaluation", {
             is_command_completely_finished: evaluation_result
           })
         
@@ -305,7 +305,7 @@ module PTY
           if closing_underscore_idx = suffix.index("__", 2)
             status_digits = suffix[2...closing_underscore_idx]
         
-            debug_log("Sandwich Exit Token Isolated", {
+            debug_log("extract_status_suffix :: Exit Token Isolated", {
               isolated_digits: status_digits,
               is_strictly_numeric: valid_status_digits?(status_digits)
             })
@@ -361,7 +361,7 @@ module PTY
               if suffix.starts_with?("__") && (closing_idx = suffix.index("__", 2))
                 status_digits = suffix[2...closing_idx]
                 
-                debug_log("Harvester Status Digits Extracted", {
+                debug_log("extract_status_code :: Status Digits Extracted", {
                   status_digits: status_digits,
                   is_numeric: status_digits.chars.all?(&.ascii_number?)
                 })
@@ -381,7 +381,7 @@ module PTY
             start_pos = transcript.index(start_sentinel)
             end_pos = transcript.rindex(end_sentinel)
             
-            debug_log("Harvester Boundary Slice Mapping", {
+            debug_log("isolate_sandboxed_payload :: Boundary Slice Mapping", {
               start_pos: start_pos,
               end_pos: end_pos
             })
@@ -398,7 +398,7 @@ module PTY
           #   start_pos = transcript.rindex(start_sentinel)
           #   end_pos = transcript.rindex(end_sentinel)
           #
-          #   debug_log("Harvester Boundary Slice Mapping", {
+          #   debug_log("isolate_sandboxed_payload :: Boundary Slice Mapping", {
           #     start_pos: start_pos,
           #     end_pos: end_pos
           #   })
@@ -429,7 +429,7 @@ module PTY
           # 1. Audit the entry metrics and the raw incoming text data payload size
           transcript = output[snapshot_index..-1]
           
-          debug_log("harvest_execution_block Invoked", {
+          debug_log("harvest_execution_block :: Invoked", {
             snapshot_index: snapshot_index,
             transcript_bytesize: transcript.bytesize,
             captured_text_bytesize: captured_text.bytesize
@@ -446,12 +446,12 @@ module PTY
         
           # 4. Fallback safeguard check if line formatting caused anomalies
           if clean_output.empty? && !captured_text.empty?
-            debug_log("Harvester Triggered Captured Text Fallback Routine", "")
+            debug_log("harvest_execution_block :: Captured Text Fallback", "")
             clean_output = strip_terminal_noise(captured_text)
           end
         
           # 5. Final output check confirming what the assertion block will receive
-          debug_log("harvest_execution_block Completed Evaluation", {
+          debug_log("harvest_execution_block :: Completed Evaluation", {
             final_cleaned_output: clean_output,
             final_exit_status: exit_status
           })
@@ -472,12 +472,11 @@ module PTY
         initial_snapshot_size = add_queue do |run_queue|
           dispatch_sandwich_commands(command_string, start_sentinel, end_sentinel)
       
-          p "in #run"
           loop do
             message = run_queue.pop
             case message
             in String
-              debug_log("#run String", {
+              debug_log("run :: String Message", {
                 message_chunk: message,
                 total_accumulated_bytes: captured_text.bytesize
               })
@@ -488,11 +487,10 @@ module PTY
               # FIX: Validate the end_sentinel is followed by an evaluated integer digit layout (__\d+__)
               # instead of a raw literal shell macro variable (__$?__), ensuring we never stop inside the input echo phase!
               if command_sandwich_complete?(captured_text, start_sentinel, end_sentinel)
-                p "command_sandwich_complete"
                 break
               end
             in Symbol
-              debug_log("#run Symbol", {
+              debug_log("run :: Control Message", {
                 event_token: message
               })
       
@@ -542,9 +540,8 @@ module PTY
           
             # Broadcast a copy of the chunk to every active listener queue safely
             @subscribers_mutex.synchronize do
-              p "in #process_next_chunk"
               # Replace raw distribution inspection with:
-              debug_log("Distribution Engine Fan-Out", {
+              debug_log("process_next_chunk :: Distribution Fan-Out", {
                 active_subscribers: @subscribers.size,
                 fanning_chunk: chunk
               })
@@ -619,8 +616,7 @@ module PTY
                   # Move the data instantly into our thread-safe queue
                   chunk = String.new(io_buffer[0, bytes_read])
           
-                  p "in #spawn_ingestion_loop"
-                  debug_log("Ingestion Fiber Received Data", {
+                  debug_log("spawn_ingestion_loop :: Received Data", {
                     bytes_read: bytes_read,
                     raw_payload: chunk
                   })
@@ -710,17 +706,17 @@ module PTY
           @started.set(true)
         
           if child_pid = @process.try(&.pid)
-            debug_log("POSIX Fork Handshake Successful", {
+            debug_log("initialize_parent_proxy :: Fork Handshake Successful", {
               allocated_child_pid: child_pid,
               master_fd: @master_io.try(&.fd)
             })
           else
-            debug_log("POSIX Fork Allocation Error - Process Refused to Boot", "")
+            debug_log("initialize_parent_proxy :: Fork Allocation Error", "")
           end
         
           monitor_parent_stream(master_fd)
         
-          debug_log("Background Concurrency Workers Spawned", {
+          debug_log("initialize_parent_proxy :: Background Workers Spawned", {
             reader_active_flag: @reader_active.get,
             ingest_queue_object_id: @ingest_queue.object_id
           })
@@ -767,7 +763,7 @@ module PTY
     
       # STRICTLY starts a vanilla interactive shell session without inputs or blocks
       def start : self
-        debug_log("Session Boot Sequence Triggered", {
+        debug_log("start :: Boot Sequence Triggered", {
           target_shell: @shell,
           dimensions: "#{@rows} rows x #{@columns} columns",
           working_dir: @cwd,
@@ -776,7 +772,7 @@ module PTY
       
         # Guard against booting an already running process
         if @started.swap(true)
-          debug_log("Session Start Aborted - Process is Already Running", "")
+          debug_log("start :: Already Running", "")
           return self
         end
       
@@ -797,14 +793,14 @@ module PTY
         else
           # INSIDE PARENT
           initialize_parent_proxy(pid, slave_fd, master_fd)
-          debug_log("Before #wait_for in #start: Entering Initial Shell Settlement Sync Guard", {
+          debug_log("start :: Initial Shell Settlement Sync Guard", {
             waiting_for_token: "$ ",
             current_history_size: output.bytesize
           })
           wait_for("$ ") rescue nil
         end
       
-        debug_log("Session Boot Sequence Complete - Ready for Pasted Script Inputs", {
+        debug_log("start :: Boot Sequence Complete", {
           final_history_snapshot: output
         })
       
@@ -875,9 +871,8 @@ module PTY
         start_time = Time.instant
         local_buffer = ""
       
-        p "in #wait_for"
         add_queue do |queue|
-          debug_log("wait_for Engine Initialized", {
+          debug_log("wait_for :: Engine Initialized", {
             tracking_target: target,
             timeout_threshold: timeout,
             queue_object_id: queue.object_id
@@ -889,7 +884,7 @@ module PTY
               raise TimeoutError.new("Timed out waiting for '#{target}'")
             end
       
-            debug_log("wait_for Iteration Guard Pass", {
+            debug_log("wait_for :: Iteration Guard Pass", {
               elapsed_seconds: start_time.elapsed.to_f,
               reader_active_state: @reader_active.get,
               backlogged_queue_elements: queue.size
@@ -907,7 +902,7 @@ module PTY
             in String
               local_buffer += message
       
-              debug_log("wait_for Received Data String", {
+              debug_log("wait_for :: Received Data", {
                 arrived_chunk: message,
                 updated_local_buffer: local_buffer,
                 match_detected: local_buffer.includes?(target)
@@ -917,7 +912,7 @@ module PTY
                 break
               end
             in Symbol
-              debug_log("wait_for Intercepted Control Signal", {
+              debug_log("wait_for :: Control Signal", {
                 control_token: message,
                 remaining_elements_to_drain: queue.size
               })
