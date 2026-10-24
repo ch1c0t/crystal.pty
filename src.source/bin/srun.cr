@@ -2,7 +2,7 @@ require "file_utils"
 require "option_parser"
 
 module SRun
-  DEFAULT_TIMEOUT_SECONDS = 30
+  DEFAULT_TIMEOUT_SECONDS = 10
   KILL_GRACE_SECONDS = 2
 
   record SpecResult,
