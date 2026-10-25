@@ -649,7 +649,8 @@ module PTY
       end
     
       module ExecuteChildSandbox
-        # Helper B: Light, GC-free execution boundary inside the cloned fork
+        # Child-side work must avoid Crystal allocation/runtime code after fork.
+        # All strings and pointer vectors are prepared in the parent before fork.
         private def execute_child_sandbox(
           master_fd : Int32,
           slave_fd : Int32,
@@ -704,7 +705,7 @@ module PTY
       end
     
       module StagePreFlightPrimitives
-        # Helper A: Packs our bags completely before crossing the border
+        # Helper A: Packs arguments and environment completely before crossing the fork boundary
         private def stage_pre_flight_primitives : Tuple(Array(String), String, String, String?)
           process_env = prepare_environment_variables
           env_payload = process_env.map { |k, v| "#{k}=#{v}" }
@@ -774,6 +775,11 @@ module PTY
         envp = [] of Pointer(UInt8)
         env_payload.each { |entry| envp << entry.to_unsafe }
         envp << Pointer(UInt8).null
+
+      
+        # Keep all memory referenced by argv/envp rooted across any parent-side GC
+        # that can run before fork; the child uses the inherited bytes directly.
+        @child_launch_buffers = {env_payload, target_executable, argv, envp}
       
         # Evaluate all managed-string / Array accessors before fork. The child receives
         # only raw pointers to memory that already exists in its forked address space.
@@ -801,6 +807,7 @@ module PTY
             current_history_size: output.bytesize
           })
           wait_for("$ ") rescue nil
+          @child_launch_buffers = nil
         end
       
         debug_log("start :: Boot Sequence Complete", {
@@ -959,6 +966,7 @@ module PTY
     @name : String?
     @env : Hash(String, String)?
     @cwd : String?
+    @child_launch_buffers : Tuple(Array(String), String, Array(Pointer(UInt8)), Array(Pointer(UInt8)))? = nil
     
     @process : Process?
     @master_io : IO::FileDescriptor?

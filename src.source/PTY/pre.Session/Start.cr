@@ -27,6 +27,10 @@ def start : self
   env_payload.each { |entry| envp << entry.to_unsafe }
   envp << Pointer(UInt8).null
 
+  # Keep all memory referenced by argv/envp rooted across any parent-side GC
+  # that can run before fork; the child uses the inherited bytes directly.
+  @child_launch_buffers = {env_payload, target_executable, argv, envp}
+
   # Evaluate all managed-string / Array accessors before fork. The child receives
   # only raw pointers to memory that already exists in its forked address space.
   executable_path_ptr = target_executable.to_unsafe
@@ -53,6 +57,7 @@ def start : self
       current_history_size: output.bytesize
     })
     wait_for("$ ") rescue nil
+    @child_launch_buffers = nil
   end
 
   debug_log("start :: Boot Sequence Complete", {

@@ -13,6 +13,7 @@ end
 @name : String?
 @env : Hash(String, String)?
 @cwd : String?
+@child_launch_buffers : Tuple(Array(String), String, Array(Pointer(UInt8)), Array(Pointer(UInt8)))? = nil
 
 @process : Process?
 @master_io : IO::FileDescriptor?
