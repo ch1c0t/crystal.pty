@@ -1,7 +1,14 @@
-# Helper A: Packs our bags completely before crossing the border
-private def stage_pre_flight_primitives : Tuple(Array(String), String, String?)
-  env_payload = prepare_environment_variables.map { |k, v| "#{k}=#{v}" }
-  {env_payload, @shell, @cwd}
+# Helper A: Packs arguments and environment completely before crossing the fork boundary
+private def stage_pre_flight_primitives : Tuple(Array(String), String, String, String?)
+  process_env = prepare_environment_variables
+  env_payload = process_env.map { |k, v| "#{k}=#{v}" }
+
+  target_shell = @shell
+  search_path = process_env["PATH"]? || "/usr/bin:/bin"
+  target_executable = Process.find_executable(target_shell, search_path, @cwd || Dir.current) ||
+    raise "PTY shell executable not found: #{target_shell}"
+
+  {env_payload, target_shell, target_executable, @cwd}
 end
 
 private def prepare_environment_variables : Hash(String, String)

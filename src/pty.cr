@@ -35,6 +35,7 @@ module PTY
     fun close(fd : Int32) : Int32
     fun ioctl(fd : Int32, request : UInt64, argp : Void*) : Int32
     fun kill(pid : Int32, sig : Int32) : Int32
+    fun execve(path : UInt8*, argv : UInt8**, envp : UInt8**) : Int32
   end
 
   class ExecutionResult
@@ -649,34 +650,29 @@ module PTY
     
       module ExecuteChildSandbox
         # Helper B: Light, GC-free execution boundary inside the cloned fork
-        private def execute_child_sandbox(master_fd : Int32, slave_fd : Int32, env_payload : Array(String), target_cwd : String?, target_shell : String) : NoReturn
-          # The child must not retain the parent's PTY master descriptor. Keeping it
-          # open in the child can prevent expected PTY hangup/EOF behaviour.
+        private def execute_child_sandbox(
+          master_fd : Int32,
+          slave_fd : Int32,
+          executable_path : Pointer(UInt8),
+          target_cwd : Pointer(UInt8),
+          argv : Pointer(Pointer(UInt8)),
+          envp : Pointer(Pointer(UInt8))
+        ) : NoReturn
           PTY::C.close(master_fd)
         
-          PTY::C.login_tty(slave_fd)
+          # login_tty performs the native controlling-terminal/stdin/stdout/stderr setup.
+          PTY::C._exit(127) unless PTY::C.login_tty(slave_fd) == 0
         
-          # Direct POSIX LibC mutations skip high-level language object allocations
-          # 1. Apply environment variables using raw string copies
-          # without touching Crystal's heavy ENV wrapper object
-          env_payload.each do |env_string|
-            # Split out the key/value parts safely using primitive byte manipulation
-            if idx = env_string.index('=')
-              k = env_string[0...idx]
-              v = env_string[idx + 1..-1]
-              # Call LibC directly to bypass Crystal heap allocations entirely
-              LibC.setenv(k.to_unsafe, v.to_unsafe, 1)
-            end
+          # chdir is async-signal-safe; the pointer was staged before the fork.
+          if target_cwd != Pointer(UInt8).null
+            LibC.chdir(target_cwd)
           end
         
-          # 2. Safely change directory locally inside the child sandbox
-          if target_cwd
-            LibC.chdir(target_cwd.to_unsafe)
-          end
+          # Do not call Process.exec here: it allocates/builds envp in Crystal after fork.
+          PTY::C.execve(executable_path, argv, envp)
         
-          # Overwrite the child memory stack instantly
-          Process.exec(target_shell)
-          PTY::C._exit(1)
+          # execve returns only on failure. Never unwind through Crystal in this child.
+          PTY::C._exit(127)
         end
       end
     
@@ -709,9 +705,16 @@ module PTY
     
       module StagePreFlightPrimitives
         # Helper A: Packs our bags completely before crossing the border
-        private def stage_pre_flight_primitives : Tuple(Array(String), String, String?)
-          env_payload = prepare_environment_variables.map { |k, v| "#{k}=#{v}" }
-          {env_payload, @shell, @cwd}
+        private def stage_pre_flight_primitives : Tuple(Array(String), String, String, String?)
+          process_env = prepare_environment_variables
+          env_payload = process_env.map { |k, v| "#{k}=#{v}" }
+        
+          target_shell = @shell
+          search_path = process_env["PATH"]? || "/usr/bin:/bin"
+          target_executable = Process.find_executable(target_shell, search_path, @cwd || Dir.current) ||
+            raise "PTY shell executable not found: #{target_shell}"
+        
+          {env_payload, target_shell, target_executable, @cwd}
         end
         
         private def prepare_environment_variables : Hash(String, String)
@@ -752,26 +755,44 @@ module PTY
           custom_env: @env
         })
       
-        # Guard against booting an already running process
+        # Guard against booting an already running process.
         if @started.swap(true)
           debug_log("start :: Already Running", "")
           return self
         end
       
-        # Phase 1: Allocate system virtual descriptors
+        # Pre-flight resolves PATH and builds every argument/environment string before
+        # any fork. If the executable is invalid, no PTY descriptors have been allocated.
+        begin
+          env_payload, target_shell, target_executable, target_cwd = stage_pre_flight_primitives
+        rescue
+          @started.set(false)
+          raise
+        end
+      
+        argv = [target_shell.to_unsafe, Pointer(UInt8).null]
+        envp = [] of Pointer(UInt8)
+        env_payload.each { |entry| envp << entry.to_unsafe }
+        envp << Pointer(UInt8).null
+      
+        # Evaluate all managed-string / Array accessors before fork. The child receives
+        # only raw pointers to memory that already exists in its forked address space.
+        executable_path_ptr = target_executable.to_unsafe
+        target_cwd_ptr = target_cwd ? target_cwd.to_unsafe : Pointer(UInt8).null
+        argv_ptr = argv.to_unsafe
+        envp_ptr = envp.to_unsafe
+      
+        # Allocate descriptors only once pre-flight has succeeded.
         master_fd, slave_fd = allocate_pty
         update_kernel_terminal_dimensions_by_fd(master_fd)
       
-        # Phase 2: Pre-Flight Staging (Run on the mainland parent heap)
-        env_payload, target_shell, target_cwd = stage_pre_flight_primitives
-      
-        # Phase 3: The Process Split Boundary
+        # Process Split Boundary
         pid = PTY::C.fork
         if pid < 0
           raise "Error: OS process fork failed."
         elsif pid == 0
-          # INSIDE CHILD
-          execute_child_sandbox(master_fd, slave_fd, env_payload, target_cwd, target_shell)
+          # INSIDE CHILD: pass only native pointers and file descriptors.
+          execute_child_sandbox(master_fd, slave_fd, executable_path_ptr, target_cwd_ptr, argv_ptr, envp_ptr)
         else
           # INSIDE PARENT
           initialize_parent_proxy(pid, slave_fd, master_fd)
