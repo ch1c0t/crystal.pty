@@ -201,8 +201,38 @@ module PTY
     end
   
     module Initialize
+      module ValidatedShell
+        private def validated_shell(shell : Nil) : String
+          validated_shell("/bin/sh")
+        end
+        
+        private def validated_shell(shell : Symbol) : String
+          case shell
+          when :sh, :bash, :zsh, :fish, :dash, :ksh, :csh, :tcsh
+            shell.to_s
+          else
+            raise ArgumentError.new("Unknown PTY shell symbol: #{shell.inspect}")
+          end
+        end
+        
+        private def validated_shell(shell : String) : String
+          candidate = shell
+        
+          process_env = ENV.to_h
+          if custom_env = @env
+            process_env.merge!(custom_env)
+          end
+          search_path = process_env["PATH"]? || "/usr/bin:/bin"
+          unless Process.find_executable(candidate, search_path)
+            raise ArgumentError.new("PTY shell must resolve to an executable path; got #{shell.inspect}")
+          end
+        
+          candidate
+        end
+      end
+    
       def initialize(
-        shell : String | Symbol = "/bin/sh",
+        shell : (String | Symbol)? = nil,
         *,
         @rows : Int32 = 24,
         @columns : Int32 = 80,
@@ -211,23 +241,6 @@ module PTY
         @cwd : String? = nil
       )
         @shell = validated_shell(shell)
-        initialize_state
-      end
-      
-      def initialize(
-        *,
-        @rows : Int32,
-        @columns : Int32,
-        shell : String | Symbol = "/bin/sh",
-        @name : String? = nil,
-        @env : Hash(String, String)? = nil,
-        @cwd : String? = nil
-      )
-        @shell = validated_shell(shell)
-        initialize_state
-      end
-      
-      private def initialize_state
         @started = Atomic(Bool).new(false)
         @ingest_queue = PTY::Queue(String | Symbol).new
         @subscribers = Set(PTY::Queue(String | Symbol)).new
@@ -238,30 +251,7 @@ module PTY
         @reader_active = Atomic(Bool).new(false)
       end
       
-      private def validated_shell(shell : String | Symbol) : String
-        candidate = case shell
-                    when String
-                      shell
-                    when Symbol
-                      case shell
-                      when :sh, :bash, :zsh, :fish, :dash, :ksh, :csh, :tcsh
-                        shell.to_s
-                      else
-                        raise ArgumentError.new("Unknown PTY shell symbol: #{shell.inspect}")
-                      end
-                    end
-      
-        process_env = ENV.to_h
-        if custom_env = @env
-          process_env.merge!(custom_env)
-        end
-        search_path = process_env["PATH"]? || "/usr/bin:/bin"
-        unless Process.find_executable(candidate, search_path, @cwd || Dir.current)
-          raise ArgumentError.new("PTY shell must resolve to an executable path; got #{shell.inspect}")
-        end
-      
-        candidate
-      end
+      include ValidatedShell
     end
   
     module Questions
