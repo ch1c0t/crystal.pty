@@ -11,11 +11,12 @@ describe PTY::Session do
       begin
         session.start
 
-        # Print READY using octal escapes so the expected value is not present in
-        # the echoed input; wait_for must observe output from the executed shell.
+        # Print READY using octal escapes so it isn't present in the echoed command.
         token = "READY-#{Process.pid}-#{index}"
-        session.write("printf '\\122\\105\\101\\104\\131-#{Process.pid}-#{index}\\n'\n")
-        session.wait_for(token)
+        result = session.run("printf '\\122\\105\\101\\104\\131-#{Process.pid}-#{index}\\n'")
+
+        result.output.should contain(token)
+        result.status.should eq(0)
         session.alive?.should be_true
       ensure
         session.terminate
