@@ -49,7 +49,9 @@ private def validated_shell(shell : String | Symbol) : String
               end
 
   process_env = ENV.to_h
-  process_env.merge!(@env) if @env
+  if custom_env = @env
+    process_env.merge!(custom_env)
+  end
   search_path = process_env["PATH"]? || "/usr/bin:/bin"
   unless Process.find_executable(candidate, search_path, @cwd || Dir.current)
     raise ArgumentError.new("PTY shell must resolve to an executable path; got #{shell.inspect}")
