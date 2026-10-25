@@ -775,7 +775,6 @@ module PTY
         envp = [] of Pointer(UInt8)
         env_payload.each { |entry| envp << entry.to_unsafe }
         envp << Pointer(UInt8).null
-
       
         # Keep all memory referenced by argv/envp rooted across any parent-side GC
         # that can run before fork; the child uses the inherited bytes directly.
