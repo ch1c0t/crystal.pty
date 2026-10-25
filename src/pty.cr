@@ -766,9 +766,9 @@ module PTY
         # any fork. If the executable is invalid, no PTY descriptors have been allocated.
         begin
           env_payload, target_shell, target_executable, target_cwd = stage_pre_flight_primitives
-        rescue
+        rescue ex
           @started.set(false)
-          raise
+          raise ex
         end
       
         argv = [target_shell.to_unsafe, Pointer(UInt8).null]
