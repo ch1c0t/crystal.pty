@@ -1,5 +1,5 @@
 require "spec"
-require "../../src/pty"
+require "../../../src/pty"
 
 describe PTY::Command do
   # More data than a PTY buffer can hold exposes reader/writer deadlocks and early
