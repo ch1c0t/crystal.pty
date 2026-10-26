@@ -3,7 +3,7 @@ name: pty
 version: 0.1.0
 authors:
 - Anatoly Chernov <chertoly@gmail.com>
-targets:
-  srun:
-    main: src/bin/srun.cr
 crystal: ">= 1.15.1"
+targets:
+  tm:
+    main: src/bin/tm.cr

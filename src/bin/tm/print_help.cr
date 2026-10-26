@@ -1,5 +1,5 @@
 HELP_MESSAGE = <<-S
-crystal.pty is a CLI made with Crystal.
+A help message for tm.
 S
 
 def print_help

@@ -1,4 +1,4 @@
-require "./crystal.pty/*"
+require "./tm/*"
 
 VERSION = "0.1.0"
 
@@ -14,5 +14,4 @@ when 1
   end
 end
 
-require "../pty"
-p PTY::Session
+puts "tm"
