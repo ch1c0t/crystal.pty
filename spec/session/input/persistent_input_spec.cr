@@ -16,10 +16,8 @@ describe PTY::Session do
 
     # Let data settle cleanly in the master transcript
     session.wait_for("session-value:persistent-state")
-    p "before session.terminate"
     session.terminate
 
-    p "before session.output"
     session.output.should contain("session-value:persistent-state")
   end
 end
