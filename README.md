@@ -55,6 +55,28 @@ When both `rows` and `columns` are supplied, they configure the PTY window size.
 output, exit_code = PTY.run("stty size", rows: 40, columns: 120)
 ```
 
+## Logging
+
+PTY emits diagnostics through Crystal's logging system instead of writing directly to STDERR. Startup lifecycle messages use the `pty.session` source at DEBUG level; detailed output, sentinel, and synchronization diagnostics use `pty.session.trace` at TRACE level. Both are covered by the source pattern `pty.*`.
+
+The library does not configure the application's global logger. To use `LOG_LEVEL=DEBUG` or `LOG_LEVEL=TRACE`, configure logging in the application (for example, with `Log.setup_from_env`):
+
+```crystal
+require "log"
+
+Log.setup_from_env(backend: Log::IOBackend.new(STDERR))
+```
+
+For explicit source-based configuration, bind the PTY sources separately from the rest of the application:
+
+```crystal
+Log.setup do |c|
+  backend = Log::IOBackend.new(STDERR)
+  c.bind "*", :info, backend
+  c.bind "pty.*", :debug, backend # Use :trace to include detailed internals.
+end
+```
+
 ## Reliability contract
 
 - Child launch uses `openpty`, `fork`, `login_tty` and a shell wrapper that writes command status to a unique temporary file using atomic rename. Child-side launch failures terminate through `_exit(127)`.

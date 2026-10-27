@@ -1,5 +1,6 @@
 require "sync/mutex"
 require "sync/condition_variable"
+require "log"
 
 module PTY
   class Box(T)
@@ -181,25 +182,37 @@ module PTY
     end
   
     module DebugLog
-      # A specialized multi-line formatter for high-concurrency stream tracing
+      # Separates lifecycle summaries from high-volume PTY internals.
+      DEBUG_LOG = ::Log.for("pty.session")
+      TRACE_LOG = ::Log.for("pty.session.trace")
+
+      # Lifecycle events are DEBUG; output and synchronization details are TRACE.
       private def debug_log(prefix : String, data : NamedTuple | Hash | String)
-        # Prefix every event with its method so concurrent traces are easy to scan.
         method, separator, event = prefix.partition(" :: ")
+        method_label = separator.empty? ? "unknown" : method
+        event_label = separator.empty? ? prefix : event
+
+        if method_label == "start" &&
+           (event_label == "Boot Sequence Triggered" || event_label == "Already Running")
+          DEBUG_LOG.debug { formatted_debug_log(method_label, event_label, data) }
+        else
+          TRACE_LOG.trace { formatted_debug_log(method_label, event_label, data) }
+        end
+      end
+
+      private def formatted_debug_log(method_label : String, event_label : String, data : NamedTuple | Hash | String) : String
         indent = "  "
-      
         body = case data
                when String
                  data.inspect
                else
                  data.map { |k, v| "\n#{indent}#{indent}#{k}: #{v.inspect}" }.join
                end
-      
-        method_label = separator.empty? ? "unknown" : method
-        event_label = separator.empty? ? prefix : event
-        STDERR.puts "\e[36m[PTY DEBUG]\e[0m \e[35m[#{method_label}]\e[0m \e[33m[#{event_label}]\e[0m#{body}\n"
+
+        "#{method_label} :: #{event_label}#{body}"
       end
     end
-  
+
     module Initialize
       module ValidatedShell
         private def validated_shell(shell : Nil) : String
