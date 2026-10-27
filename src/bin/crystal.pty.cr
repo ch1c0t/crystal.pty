@@ -1,4 +1,4 @@
-require "./tm/*"
+require "./crystal.pty/*"
 
 VERSION = "0.1.0"
 
@@ -14,4 +14,4 @@ when 1
   end
 end
 
-puts "tm"
+puts "crystal.pty"
