@@ -7,3 +7,6 @@ crystal: ">= 1.15.1"
 targets:
   crystal.pty:
     main: src/bin/crystal.pty.cr
+dependencies:
+  queue:
+    github: ch1c0t/crystal.queue

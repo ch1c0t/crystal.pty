@@ -9,8 +9,8 @@ def initialize(
 )
   @shell = validated_shell(shell)
   @started = Atomic(Bool).new(false)
-  @ingest_queue = PTY::Queue(String | Symbol).new
-  @subscribers = Set(PTY::Queue(String | Symbol)).new
+  @ingest_queue = Queue(String | Symbol).new
+  @subscribers = Set(Queue(String | Symbol)).new
   @subscribers_mutex = Sync::Mutex.new
 
   # Securely box the initial empty string state into a raw atomic pointer reference

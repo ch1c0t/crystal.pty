@@ -1,6 +1,7 @@
 require "sync/mutex"
 require "sync/condition_variable"
 require "log"
+require "queue"
 
 module PTY
   class Box(T)
@@ -44,51 +45,6 @@ module PTY
     getter status : Int32
     
     def initialize(@output : String, @status : Int32)
-    end
-  end
-
-  class Queue(T)
-    class ClosedError < Exception; end
-    
-    def initialize
-      @deque = Deque(T).new
-      @mutex = Sync::Mutex.new
-      @cond = Sync::ConditionVariable.new(@mutex)
-      @closed = false
-    end
-    
-    def closed? : Bool
-      @mutex.synchronize { @closed }
-    end
-    
-    def close
-      @mutex.synchronize do
-        @closed = true
-        @cond.broadcast # Wake up any waiting pops to let them see closure
-      end
-    end
-    
-    # Ruby's Queue#push (never blocks, wakes up waiting pops)
-    def push(item : T)
-      @mutex.synchronize do
-        @deque.push(item)
-        @cond.signal # Wake up one fiber waiting in #pop
-      end
-    end
-    
-    # Ruby's Queue#pop (blocks the fiber until an item is pushed)
-    def pop : T
-      @mutex.synchronize do
-        while @deque.empty?
-          raise ClosedError.new("Queue is closed") if @closed
-          @cond.wait # Temporarily releases mutex and suspends fiber
-        end
-        @deque.shift # FIFO extraction
-      end
-    end
-    
-    def size : Int32
-      @mutex.synchronize { @deque.size }
     end
   end
 
@@ -162,8 +118,8 @@ module PTY
   class Session
     module AddQueue
       # Registers a private queue, yields it to the caller, and guarantees cleanup
-      private def add_queue(&block : PTY::Queue(PTY::StreamMessage) -> T) : Int32 forall T
-        my_queue = PTY::Queue(PTY::StreamMessage).new
+      private def add_queue(&block : Queue(PTY::StreamMessage) -> T) : Int32 forall T
+        my_queue = Queue(PTY::StreamMessage).new
         snapshot_size = 0
       
         @subscribers_mutex.synchronize do
@@ -255,8 +211,8 @@ module PTY
       )
         @shell = validated_shell(shell)
         @started = Atomic(Bool).new(false)
-        @ingest_queue = PTY::Queue(String | Symbol).new
-        @subscribers = Set(PTY::Queue(String | Symbol)).new
+        @ingest_queue = Queue(String | Symbol).new
+        @subscribers = Set(Queue(String | Symbol)).new
         @subscribers_mutex = Sync::Mutex.new
       
         # Securely box the initial empty string state into a raw atomic pointer reference
@@ -592,7 +548,7 @@ module PTY
                     end
                   end
                 end
-              rescue ex : PTY::Queue::ClosedError
+              rescue ex : Queue::ClosedError
                 # CRITICAL: Only broadcast :session_closed when the ingestion fiber 
                 # explicitly closes the queue upon actual shell process termination!
                 @subscribers_mutex.synchronize do
@@ -1000,7 +956,7 @@ module PTY
     @reader_active : Atomic(Bool)
     @active_run_callback : (String -> Nil)? = nil
     
-    @subscribers : Set(PTY::Queue(String | Symbol))
+    @subscribers : Set(Queue(String | Symbol))
     @subscribers_mutex : Sync::Mutex
     
     include Initialize

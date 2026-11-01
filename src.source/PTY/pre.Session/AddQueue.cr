@@ -1,6 +1,6 @@
 # Registers a private queue, yields it to the caller, and guarantees cleanup
-private def add_queue(&block : PTY::Queue(PTY::StreamMessage) -> T) : Int32 forall T
-  my_queue = PTY::Queue(PTY::StreamMessage).new
+private def add_queue(&block : Queue(PTY::StreamMessage) -> T) : Int32 forall T
+  my_queue = Queue(PTY::StreamMessage).new
   snapshot_size = 0
 
   @subscribers_mutex.synchronize do

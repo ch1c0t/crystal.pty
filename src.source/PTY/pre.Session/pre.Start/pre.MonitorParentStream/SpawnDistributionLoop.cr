@@ -16,7 +16,7 @@ private def spawn_distribution_loop
           end
         end
       end
-    rescue ex : PTY::Queue::ClosedError
+    rescue ex : Queue::ClosedError
       # CRITICAL: Only broadcast :session_closed when the ingestion fiber 
       # explicitly closes the queue upon actual shell process termination!
       @subscribers_mutex.synchronize do
