@@ -35,8 +35,9 @@ module PTY
     fun fork : Int32
     fun _exit(status : Int32) : NoReturn
     fun close(fd : Int32) : Int32
-    # Use a PTY-specific Crystal name while linking the native ioctl symbol.
-    fun pty_ioctl = "ioctl"(fd : Int32, request : UInt64, argp : Void*) : Int32
+    # Use the same variadic POSIX signature as LibC.ioctl so dependencies can
+    # declare this C symbol together in one Crystal program.
+    fun ioctl(fd : Int, request : ULong, ...) : Int
     fun kill(pid : Int32, sig : Int32) : Int32
     fun execve(path : UInt8*, argv : UInt8**, envp : UInt8**) : Int32
   end
@@ -727,7 +728,7 @@ module PTY
         private def update_kernel_terminal_dimensions_by_fd(fd : Int32)
           size = PTY::C::WinSize.new(ws_row: @rows.to_u16, ws_col: @columns.to_u16)
           tiocswinsz = 0x5414_u64 
-          PTY::C.pty_ioctl(fd, tiocswinsz, pointerof(size))
+          PTY::C.ioctl(fd, tiocswinsz, pointerof(size))
         end
       end
     
